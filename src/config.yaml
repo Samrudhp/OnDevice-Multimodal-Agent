@@ -1,0 +1,90 @@
+# Configuration file for QuadFusion fraud detection system
+
+# System Configuration
+system:
+  version: "0.1.0"
+  debug: false
+  log_level: "INFO"
+  mobile_optimized: true
+
+# Agent Configuration
+agents:
+  touch_pattern:
+    enabled: true
+    contamination: 0.1
+    n_estimators: 50
+    buffer_size: 1000
+  
+  typing_behavior:
+    enabled: true
+    sequence_length: 20
+    lstm_units: 32
+    threshold: 0.1
+  
+  voice_command:
+    enabled: true
+    sample_rate: 16000
+    n_mfcc: 13
+    speaker_threshold: 0.7
+  
+  visual:
+    enabled: true
+    image_size: 224
+    similarity_threshold: 0.7
+    max_faces: 5
+  
+  app_usage:
+    enabled: true
+    history_window_days: 30
+    anomaly_threshold: 2.5
+  
+  movement:
+    enabled: true
+    sequence_length: 100
+    sensor_features: 6
+    sampling_rate: 50
+
+  coordinator:
+    enabled: true
+    agent_weights:
+      TouchPatternAgent: 0.2
+      TypingBehaviorAgent: 0.15
+      VoiceCommandAgent: 0.2
+      VisualAgent: 0.25
+      AppUsageAgent: 0.1
+      MovementAgent: 0.1
+    risk_thresholds:
+      low: 0.3
+      medium: 0.6
+      high: 0.8
+
+# Data Management
+data:
+  buffer_size: 10000
+  retention_hours: 24
+  encryption_enabled: true
+  auto_cleanup: true
+  max_memory_mb: 100
+
+# Mobile Optimization
+mobile:
+  target_model_size_mb: 50
+  max_inference_time_ms: 100
+  battery_optimization: true
+  quantization: true
+  pruning: true
+
+# Training Configuration
+training:
+  batch_size: 32
+  epochs: 50
+  learning_rate: 0.001
+  validation_split: 0.2
+  early_stopping: true
+
+# Deployment
+deployment:
+  platform: "mobile"
+  formats: ["tflite", "pytorch_mobile", "onnx"]
+  optimization_level: "aggressive"
+  validation_required: true
