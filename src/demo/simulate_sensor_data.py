@@ -624,8 +624,24 @@ class SensorDataSimulator:
         # Encode heavy modalities for JSON
         if fmt == "json":
             json_obj = copy.deepcopy(sample)
-            json_obj["visual"] = self._encode_image(sample["visual"])
-            json_obj["voice"]  = self._encode_audio(sample["voice"])
+
+            # encode visual and audio as base64 strings
+            json_obj["visual"] = self._encode_image(sample["visual"]) if isinstance(sample.get("visual"), (np.ndarray,)) else sample.get("visual")
+            json_obj["voice"]  = self._encode_audio(sample["voice"]) if isinstance(sample.get("voice"), (np.ndarray,)) else sample.get("voice")
+
+            # helper to convert numpy arrays and bytes to serializable types
+            def _make_serializable(o):
+                if isinstance(o, np.ndarray):
+                    return o.tolist()
+                if isinstance(o, (bytes, bytearray)):
+                    return base64.b64encode(bytes(o)).decode()
+                if isinstance(o, dict):
+                    return {k: _make_serializable(v) for k, v in o.items()}
+                if isinstance(o, list):
+                    return [_make_serializable(x) for x in o]
+                return o
+
+            json_obj = _make_serializable(json_obj)
             serialized = json.dumps(json_obj, indent=2)
             if path:
                 Path(path).write_text(serialized)

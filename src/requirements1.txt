@@ -1,8 +1,5 @@
-# requirements.txt
-"""
-Python dependencies for QuadFusion fraud detection system.
-Complete package list for mobile-optimized fraud detection with pretrained model support.
-"""
+# requirements1.txt
+
 
 # Core ML libraries
 numpy>=1.21.0,<1.25.0
@@ -10,8 +7,16 @@ scikit-learn>=1.2.0,<1.4.0
 scipy>=1.9.0,<1.12.0
 
 # Deep learning frameworks - mobile optimized versions
-tensorflow>=2.13.0,<2.16.0
-tensorflow-lite>=2.13.0
+# For Apple Silicon (macOS arm64) prefer the macOS-specific builds
+tensorflow-macos>=2.13.0,<2.16.0; platform_system=="Darwin" and platform_machine=="arm64"
+tensorflow-metal>=1.0.0; platform_system=="Darwin" and platform_machine=="arm64"
+
+# Generic TensorFlow for other platforms (Linux/Windows/x86)
+tensorflow>=2.13.0,<2.16.0; platform_system!="Darwin"
+
+# TFLite runtime: use the official tflite-runtime package where wheels are available.
+# Many macOS builds don't publish a tflite wheel, so skip on Darwin to avoid pip errors.
+tflite-runtime>=2.13.0; platform_system!="Darwin"
 torch>=2.0.0,<2.2.0
 torchvision>=0.15.0,<0.17.0
 torchaudio>=2.0.0,<2.2.0
@@ -21,7 +26,8 @@ onnx>=1.14.0,<1.16.0
 onnxruntime>=1.15.0,<1.17.0
 onnxruntime-tools>=1.7.0
 tensorflow-model-optimization>=0.7.2,<0.8.0
-torch-tensorrt>=1.4.0
+# torch-tensorrt is specific to NVIDIA/TensorRT (mostly Linux + CUDA). Skip on macOS to avoid install errors.
+torch-tensorrt>=1.4.0; platform_system!="Darwin"
 
 # Pretrained model repositories
 transformers>=4.30.0,<4.40.0
@@ -34,7 +40,7 @@ librosa>=0.10.0,<0.11.0
 soundfile>=0.12.0,<0.13.0
 speechbrain>=0.5.15,<1.0.0
 pyannote-audio>=3.1.0,<4.0.0
-whisper-openai>=20231117
+openai-whisper>=20231117
 
 # Computer vision and pretrained models
 opencv-python>=4.8.0,<5.0.0
@@ -64,7 +70,9 @@ omegaconf>=2.3.0,<3.0.0
 # Mobile deployment and edge computing
 coremltools>=7.0,<8.0
 openvino>=2023.0.0,<2024.0.0
-apache-tvm>=0.13.0,<1.0.0
+# apache-tvm is not typically available as PyPI wheels on macOS. Skip on Darwin to avoid pip errors.
+# To use TVM on macOS, install via conda or build from source per TVM docs.
+apache-tvm>=0.13.0,<1.0.0; platform_system!="Darwin"
 
 # Performance monitoring and optimization
 psutil>=5.9.0,<6.0.0
@@ -119,12 +127,16 @@ websockets>=11.0.0,<12.0.0
 # Database connectivity
 sqlalchemy>=2.0.0,<3.0.0
 alembic>=1.11.0,<2.0.0
-sqlite3
+# sqlite3 is part of the Python standard library and must not be listed here.
+# It is provided by the Python runtime. See https://docs.python.org/3/library/sqlite3.html
 
 # Additional mobile optimization tools
-quantization-toolkit>=1.0.0
+# quantization-toolkit is not distributed via PyPI (no matching wheel); install it manually
+# if required for deployment or remove this entry. See project docs for instructions.
+# quantization-toolkit>=1.0.0
 neural-compressor>=2.2.0
-intel-extension-for-pytorch>=2.0.0
+# intel-extension-for-pytorch is Intel-specific and not provided for macOS via PyPI; skip on Darwin.
+intel-extension-for-pytorch>=2.0.0; platform_system!="Darwin"
 
 # Platform-specific optimizations (conditional installs)
 # For CUDA support (if available)
