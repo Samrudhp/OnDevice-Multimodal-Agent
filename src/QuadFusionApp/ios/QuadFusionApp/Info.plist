@@ -2,6 +2,14 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+    <key>NSCameraUsageDescription</key>
+<string>This app needs access to camera for biometric authentication</string>
+<key>NSMicrophoneUsageDescription</key>
+<string>This app needs access to microphone for voice pattern analysis</string>
+<key>NSLocationWhenInUseUsageDescription</key>
+<string>This app needs location access for behavioral pattern analysis</string>
+<key>NSMotionUsageDescription</key>
+<string>This app needs motion sensor access for movement pattern analysis</string>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleDisplayName</key>
@@ -40,6 +48,10 @@
 	<array>
 		<string>arm64</string>
 	</array>
+	<key>UIAppFonts</key>
+<array>
+  <string>MaterialIcons.ttf</string>
+</array>
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
