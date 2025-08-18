@@ -22,9 +22,14 @@ from sklearn.feature_selection import SelectKBest, f_classif, VarianceThreshold
 from sklearn.pipeline import Pipeline
 from sklearn.base import BaseEstimator, TransformerMixin
 
-from skl2onnx import convert_sklearn
-from skl2onnx.common.data_types import FloatTensorType
-import onnxruntime as ort
+try:
+    from skl2onnx import convert_sklearn
+    from skl2onnx.common.data_types import FloatTensorType
+    import onnxruntime as ort
+    ONNX_AVAILABLE = True
+except ImportError:
+    ONNX_AVAILABLE = False
+    print("ONNX not available - will skip ONNX conversion")
 
 # Fix import issue - use simple data generation instead
 def generate_touch_data(n_samples=1000):
@@ -337,21 +342,24 @@ class TouchModelTrainer:
             joblib.dump(pipeline, output_path / "touch_model.pkl")
             
             # Convert to ONNX for mobile deployment
-            try:
-                initial_type = [('float_input', FloatTensorType([None, self.max_features]))]
-                onnx_model = convert_sklearn(
-                    pipeline, 
-                    initial_types=initial_type,
-                    target_opset=11
-                )
-                
-                with open(output_path / "touch_model.onnx", "wb") as f:
-                    f.write(onnx_model.SerializeToString())
+            if ONNX_AVAILABLE:
+                try:
+                    initial_type = [('float_input', FloatTensorType([None, self.max_features]))]
+                    onnx_model = convert_sklearn(
+                        pipeline, 
+                        initial_types=initial_type,
+                        target_opset=11
+                    )
                     
-                logger.info("ONNX model saved successfully")
-                
-            except Exception as e:
-                logger.warning(f"ONNX conversion failed: {e}")
+                    with open(output_path / "touch_model.onnx", "wb") as f:
+                        f.write(onnx_model.SerializeToString())
+                        
+                    logger.info("ONNX model saved successfully")
+                    
+                except Exception as e:
+                    logger.warning(f"ONNX conversion failed: {e}")
+            else:
+                logger.info("ONNX not available - skipping ONNX conversion")
             
             # Save model metadata
             metadata = {
@@ -537,11 +545,10 @@ if __name__ == "__main__":
         
         # Load or generate data
         print("📁 Loading training data...")
-        data_loader = TouchPatternLoader()
         
         # Generate sample data if no real data available
         print("🔄 Generating sample touch data...")
-        sample_data = data_loader.generate_sample_data(n_samples=1000)
+        sample_data = generate_touch_data(n_samples=1000)
         
         # Create temporary data file
         temp_data_path = "temp_touch_data.csv"
