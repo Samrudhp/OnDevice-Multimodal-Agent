@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Animated } from 'react-native';
 import * as Icons from 'lucide-react-native';
 import { SensorManager } from '../lib/sensor-manager';
 import { QuadFusionAPI } from '../lib/api';
@@ -7,6 +7,8 @@ import ProcessingResultDisplay from '../components/ProcessingResultDisplay';
 import StatusIndicator from '../components/StatusIndicator';
 import type { SensorData, ProcessingResult } from '../lib/api';
 import { AGENT_TYPES, API_CONNECTION_STATUS, COLORS } from '../lib/constants';
+import { SPACING, BORDER_RADIUS } from '../lib/theme';
+import { useGlowAnimation, usePulseAnimation } from '../lib/animations';
 
 const Play = Icons.Play ?? (() => null);
 const Square = Icons.Square ?? (() => null);
@@ -34,6 +36,9 @@ export default function LiveMonitoring({
   const [apiConnectionStatus, setApiConnectionStatus] = useState<typeof API_CONNECTION_STATUS[keyof typeof API_CONNECTION_STATUS]>(API_CONNECTION_STATUS.DISCONNECTED);
   const [isUsingFallback, setIsUsingFallback] = useState(false);
   const durationTimerRef = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
+  
+  const { glowAnim, startGlowAnimation } = useGlowAnimation(0.4, 0.8);
+  const { pulseAnim, startPulseAnimation } = usePulseAnimation(0.05);
 
   useEffect(() => {
     // Initialize sensor manager and load models on component mount
@@ -298,17 +303,23 @@ export default function LiveMonitoring({
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       {/* Status Display */}
+      {/* Status Display */}
       <TouchableOpacity 
         style={styles.statusCard} 
         onPress={() => !modelsLoaded && loadModels()}
         disabled={isLoadingModels || isMonitoring || isProcessing}
       >
-        <StatusIndicator
-          status={status.status}
-          message={status.message}
-          submessage={status.submessage}
-          size="large"
-        />
+        <Animated.View style={{
+          shadowOpacity: glowAnim,
+          transform: [{ scale: pulseAnim }]
+        }}>
+          <StatusIndicator
+            status={status.status}
+            message={status.message}
+            submessage={status.submessage}
+            size="large"
+          />
+        </Animated.View>
       </TouchableOpacity>
       
       {/* API Connection Status */}
@@ -439,16 +450,18 @@ const styles = StyleSheet.create({
   },
   statusCard: {
     backgroundColor: COLORS.CARD,
-    borderRadius: 12,
+    borderRadius: BORDER_RADIUS.LG,
     padding: 20,
     margin: 16,
-    shadowColor: COLORS.PRIMARY,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 5,
+    shadowColor: COLORS.GLOW,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 12,
+    elevation: 8,
     borderWidth: 1,
-    borderColor: COLORS.GLOW,
+    borderColor: COLORS.ACCENT,
+    position: 'relative',
+    overflow: 'hidden',
   },
   connectionStatus: {
     padding: 8,
@@ -488,17 +501,19 @@ const styles = StyleSheet.create({
   },
   controlCard: {
     backgroundColor: COLORS.CARD,
-    borderRadius: 12,
-    padding: 16,
+    borderRadius: BORDER_RADIUS.LG,
+    padding: SPACING.MD,
     marginHorizontal: 16,
     marginBottom: 16,
-    shadowColor: COLORS.PRIMARY,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 5,
+    shadowColor: COLORS.GLOW,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.6,
+    shadowRadius: 12,
+    elevation: 8,
     borderWidth: 1,
-    borderColor: COLORS.GLOW,
+    borderColor: COLORS.ACCENT,
+    position: 'relative',
+    overflow: 'hidden',
   },
   cardTitle: {
     fontSize: 18,
@@ -507,10 +522,11 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     textShadowColor: COLORS.GLOW,
     textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 4,
+    textShadowRadius: 6,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.GRAY_700,
+    borderBottomColor: COLORS.ACCENT,
     paddingBottom: 12,
+    letterSpacing: 0.5,
   },
   controlsContainer: {
     flexDirection: 'row',
@@ -524,13 +540,17 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingVertical: 12,
     paddingHorizontal: 16,
-    borderRadius: 8,
+    borderRadius: BORDER_RADIUS.MD,
     gap: 8,
     shadowColor: COLORS.GLOW,
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.5,
-    shadowRadius: 8,
-    elevation: 5,
+    shadowOpacity: 0.8,
+    shadowRadius: 12,
+    elevation: 8,
+    borderWidth: 1,
+    borderColor: COLORS.ACCENT,
+    position: 'relative',
+    overflow: 'hidden',
   },
   startButton: {
     backgroundColor: COLORS.SUCCESS,
@@ -589,16 +609,20 @@ const styles = StyleSheet.create({
     color: '#1F2937',
   },
   instructionsCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 16,
+    backgroundColor: COLORS.CARD,
+    borderRadius: BORDER_RADIUS.LG,
+    padding: SPACING.MD,
     marginHorizontal: 16,
     marginBottom: 32,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowColor: COLORS.GLOW,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 10,
+    elevation: 8,
+    borderWidth: 1,
+    borderColor: COLORS.ACCENT,
+    position: 'relative',
+    overflow: 'hidden',
   },
   instruction: {
     flexDirection: 'row',

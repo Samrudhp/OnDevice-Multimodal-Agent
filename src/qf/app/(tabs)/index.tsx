@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Alert, ScrollView } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Alert, ScrollView, Animated } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as LocalAuthentication from 'expo-local-authentication';
 import * as Icons from 'lucide-react-native';
 import { StatusBar } from 'expo-status-bar';
-import { COLORS } from '@/lib/constants';
+import { COLORS, ANIMATION } from '@/lib/constants';
 import EnrollmentForm from '../../components/EnrollmentForm';
+import GridBackground from '../../components/GridBackground';
+import { SPACING, BORDER_RADIUS } from '../../lib/theme';
+import { useGlowAnimation, usePulseAnimation } from '../../lib/animations';
 
 const Shield = Icons.Shield ?? (() => null);
 const CheckCircle = Icons.CheckCircle ?? Icons.CircleCheck ?? (() => null);
@@ -29,9 +32,18 @@ export default function AuthenticationTab() {
   const [authHistory, setAuthHistory] = useState<AuthResult[]>([]);
   const [biometricType, setBiometricType] = useState<string>('');
   const [showEnrollment, setShowEnrollment] = useState(false);
+  
+  const { glowAnim, startGlowAnimation } = useGlowAnimation(0.4, 0.8);
+  const { pulseAnim, startPulseAnimation } = usePulseAnimation(0.05);
 
   useEffect(() => {
     checkBiometricSupport();
+  }, []);
+  
+  // Initialize animations on component mount
+  useEffect(() => {
+    // No continuous animations as per user preference
+    // Animations will only be triggered by user interactions
   }, []);
 
   const checkBiometricSupport = async () => {
@@ -103,15 +115,33 @@ export default function AuthenticationTab() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar style="dark" />
+      <StatusBar style="light" />
+      <GridBackground spacing={30} opacity={0.15} />
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.header}>
-          <Shield size={48} color="#2563EB" />
-          <Text style={styles.title}>QuadFusion Security</Text>
-          <Text style={styles.subtitle}>Advanced Biometric Authentication</Text>
+          <View style={styles.headerTop}>
+            <View style={styles.cornerAccent} />
+            <View style={[styles.cornerAccent, styles.cornerAccentTopRight]} />
+            <View style={[styles.cornerAccent, styles.cornerAccentBottomLeft]} />
+            <View style={[styles.cornerAccent, styles.cornerAccentBottomRight]} />
+            <Shield size={48} color={COLORS.ACCENT} style={styles.headerIcon} />
+            <Animated.Text style={[styles.title, { textShadowRadius: pulseAnim.interpolate({
+              inputRange: [1, 1.05],
+              outputRange: [4, 8]
+            }) }]}>QuadFusion Security</Animated.Text>
+            <Text style={styles.subtitle}>Advanced Biometric Authentication</Text>
+            <View style={styles.headerDivider} />
+          </View>
         </View>
 
-        <View style={styles.statusCard}>
+        <Animated.View style={[styles.statusCard, {
+          shadowOpacity: glowAnim,
+          transform: [{ scale: pulseAnim }]
+        }]}>
+          <View style={styles.cornerAccent} />
+          <View style={[styles.cornerAccent, styles.cornerAccentTopRight]} />
+          <View style={[styles.cornerAccent, styles.cornerAccentBottomLeft]} />
+          <View style={[styles.cornerAccent, styles.cornerAccentBottomRight]} />
           <View style={styles.statusHeader}>
             {isAuthenticated ? (
               <CheckCircle size={32} color="#10B981" />
@@ -156,7 +186,14 @@ export default function AuthenticationTab() {
         </View>
 
         {authHistory.length > 0 && (
-          <View style={styles.historyCard}>
+          <Animated.View style={[styles.historyCard, {
+            shadowOpacity: glowAnim,
+            transform: [{ scale: pulseAnim }]
+          }]}>
+            <View style={styles.cornerAccent} />
+            <View style={[styles.cornerAccent, styles.cornerAccentTopRight]} />
+            <View style={[styles.cornerAccent, styles.cornerAccentBottomLeft]} />
+            <View style={[styles.cornerAccent, styles.cornerAccentBottomRight]} />
             <Text style={styles.historyTitle}>Recent Authentication Attempts</Text>
             {authHistory.map((attempt, index) => (
               <View key={index} style={styles.historyItem}>
@@ -179,10 +216,17 @@ export default function AuthenticationTab() {
                 </Text>
               </View>
             ))}
-          </View>
+          </Animated.View>
         )}
 
-        <View style={styles.featuresCard}>
+        <Animated.View style={[styles.featuresCard, {
+          shadowOpacity: glowAnim,
+          transform: [{ scale: pulseAnim }]
+        }]}>
+          <View style={styles.cornerAccent} />
+          <View style={[styles.cornerAccent, styles.cornerAccentTopRight]} />
+          <View style={[styles.cornerAccent, styles.cornerAccentBottomLeft]} />
+          <View style={[styles.cornerAccent, styles.cornerAccentBottomRight]} />
           <Text style={styles.featuresTitle}>Security Features</Text>
           <View style={styles.featuresList}>
             <View style={styles.featureItem}>
@@ -198,7 +242,7 @@ export default function AuthenticationTab() {
               <Text style={styles.featureText}>Advanced risk assessment</Text>
             </View>
           </View>
-        </View>
+        </Animated.View>
       </ScrollView>
       
       {/* Enrollment Modal */}
@@ -222,17 +266,33 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.BACKGROUND,
   },
   scrollContent: {
-    padding: 20,
+    padding: SPACING.MD,
   },
   header: {
     alignItems: 'center',
-    marginBottom: 32,
+    marginBottom: SPACING.XL,
+  },
+  headerTop: {
+    alignItems: 'center',
+    width: '100%',
+    position: 'relative',
+    paddingVertical: SPACING.LG,
+    borderWidth: 1,
+    borderColor: COLORS.GLOW,
+    borderRadius: BORDER_RADIUS.LG,
+    paddingHorizontal: SPACING.MD,
+  },
+  headerIcon: {
+    shadowColor: COLORS.ACCENT,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 10,
   },
   title: {
     fontSize: 28,
     fontWeight: '700',
     color: COLORS.WHITE,
-    marginTop: 16,
+    marginTop: SPACING.MD,
     textShadowColor: COLORS.GLOW,
     textShadowOffset: { width: 0, height: 0 },
     textShadowRadius: 4,
@@ -240,20 +300,66 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 16,
     color: COLORS.GRAY_300,
-    marginTop: 4,
+    marginTop: SPACING.XS,
+  },
+  headerDivider: {
+    height: 2,
+    backgroundColor: COLORS.GLOW,
+    marginTop: SPACING.MD,
+    width: '80%',
+    shadowColor: COLORS.GLOW,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 4,
+  },
+  cornerAccent: {
+    position: 'absolute',
+    width: 20,
+    height: 20,
+    borderColor: COLORS.ACCENT,
+    top: 0,
+    left: 0,
+    borderTopWidth: 2,
+    borderLeftWidth: 2,
+  },
+  cornerAccentTopRight: {
+    left: undefined,
+    right: 0,
+    borderTopWidth: 2,
+    borderRightWidth: 2,
+    borderLeftWidth: 0,
+  },
+  cornerAccentBottomLeft: {
+    top: undefined,
+    bottom: 0,
+    borderBottomWidth: 2,
+    borderLeftWidth: 2,
+    borderTopWidth: 0,
+  },
+  cornerAccentBottomRight: {
+    top: undefined,
+    left: undefined,
+    bottom: 0,
+    right: 0,
+    borderBottomWidth: 2,
+    borderRightWidth: 2,
+    borderTopWidth: 0,
+    borderLeftWidth: 0,
   },
   statusCard: {
     backgroundColor: COLORS.CARD,
-    borderRadius: 16,
-    padding: 24,
-    marginBottom: 24,
+    borderRadius: BORDER_RADIUS.LG,
+    padding: SPACING.LG,
+    marginBottom: SPACING.LG,
     borderWidth: 1,
     borderColor: COLORS.GLOW,
     shadowColor: COLORS.PRIMARY,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 10,
     elevation: 4,
+    position: 'relative',
+    overflow: 'hidden',
   },
   statusHeader: {
     flexDirection: 'row',
@@ -270,15 +376,17 @@ const styles = StyleSheet.create({
   },
   authButton: {
     backgroundColor: COLORS.PRIMARY,
-    borderRadius: 12,
-    padding: 16,
+    borderRadius: BORDER_RADIUS.MD,
+    padding: SPACING.MD,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: COLORS.GLOW,
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.5,
-    shadowRadius: 8,
+    shadowOpacity: 0.8,
+    shadowRadius: 10,
+    borderWidth: 1,
+    borderColor: COLORS.ACCENT,
   },
   authButtonDisabled: {
     opacity: 0.7,
@@ -309,16 +417,18 @@ const styles = StyleSheet.create({
   },
   historyCard: {
     backgroundColor: COLORS.CARD,
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 24,
+    borderRadius: BORDER_RADIUS.LG,
+    padding: SPACING.MD,
+    marginBottom: SPACING.LG,
     borderWidth: 1,
     borderColor: COLORS.GLOW,
     shadowColor: COLORS.PRIMARY,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 10,
     elevation: 4,
+    position: 'relative',
+    overflow: 'hidden',
   },
   historyTitle: {
     fontSize: 18,
@@ -368,15 +478,17 @@ const styles = StyleSheet.create({
   },
   featuresCard: {
     backgroundColor: COLORS.CARD,
-    borderRadius: 16,
-    padding: 20,
+    borderRadius: BORDER_RADIUS.LG,
+    padding: SPACING.MD,
     borderWidth: 1,
     borderColor: COLORS.GLOW,
     shadowColor: COLORS.PRIMARY,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 10,
     elevation: 4,
+    position: 'relative',
+    overflow: 'hidden',
   },
   featuresTitle: {
     fontSize: 18,
@@ -406,14 +518,14 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
     borderWidth: 2,
     borderColor: COLORS.PRIMARY,
-    paddingVertical: 16,
-    paddingHorizontal: 32,
-    borderRadius: 12,
-    marginBottom: 16,
+    paddingVertical: SPACING.MD,
+    paddingHorizontal: SPACING.XL,
+    borderRadius: BORDER_RADIUS.MD,
+    marginBottom: SPACING.MD,
     shadowColor: COLORS.GLOW,
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.5,
-    shadowRadius: 8,
+    shadowOpacity: 0.8,
+    shadowRadius: 10,
     elevation: 3,
   },
   enrollButtonText: {

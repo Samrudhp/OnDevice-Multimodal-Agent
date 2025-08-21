@@ -43,17 +43,18 @@ export const SENSOR_CONFIG = {
   APP_USAGE_BUFFER_SIZE: 20,
 } as const;
 
-// UI Constants - Dark Cyber Theme
+// UI Constants - Modern Cyber Theme
 export const COLORS = {
-  PRIMARY: '#00FFFF', // Cyan
-  SECONDARY: '#7B42F6', // Purple
-  ACCENT: '#00FF9F', // Neon Green
+  PRIMARY: '#0CFFE1', // Bright Teal
+  SECONDARY: '#8A2BE2', // Electric Purple
+  ACCENT: '#36F3FF', // Electric Blue
   SUCCESS: '#00FF9F', // Neon Green
-  WARNING: '#FFB800', // Amber
-  ERROR: '#FF0055', // Neon Red
-  BACKGROUND: '#0A0E17', // Dark Blue-Black
-  SURFACE: '#141A26', // Slightly lighter dark blue
-  CARD: '#1C2333', // Card background
+  WARNING: '#FFD700', // Cyber Gold
+  ERROR: '#FF2A6D', // Neon Pink
+  BACKGROUND: '#080C14', // Deep Space Black
+  SURFACE: '#111827', // Dark Slate
+  CARD: '#1A202E', // Midnight Blue
+  CARD_ALT: '#232A3B', // Alternate Card
   WHITE: '#FFFFFF',
   BLACK: '#000000',
   GRAY_100: '#E2E8F0',
@@ -61,8 +62,9 @@ export const COLORS = {
   GRAY_500: '#64748B',
   GRAY_700: '#334155',
   GRAY_900: '#0F172A',
-  GLOW: 'rgba(0, 255, 255, 0.5)', // Cyan glow effect
-  GRID: 'rgba(0, 255, 255, 0.1)', // Grid lines
+  GLOW: 'rgba(12, 255, 225, 0.6)', // Teal glow effect
+  GLOW_SECONDARY: 'rgba(138, 43, 226, 0.5)', // Purple glow
+  GRID: 'rgba(12, 255, 225, 0.08)', // Grid lines
 } as const;
 
 // Animation Durations

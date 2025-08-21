@@ -2,13 +2,16 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import * as Icons from 'lucide-react-native';
 import { COLORS } from '../lib/constants';
+import { BORDER_RADIUS, SPACING, createShadow } from '../lib/theme';
 
 const CheckCircle = Icons.CheckCircle ?? (() => null);
-const AlertCircle = Icons.AlertCircle ?? (() => null);
+const AlertTriangle = Icons.AlertTriangle ?? (() => null);
+const XCircle = Icons.XCircle ?? (() => null);
 const Clock = Icons.Clock ?? (() => null);
 const Loader = Icons.Loader ?? (() => null);
+const Info = Icons.Info ?? (() => null);
 
-export type StatusType = 'success' | 'error' | 'warning' | 'loading' | 'idle';
+export type StatusType = 'success' | 'error' | 'warning' | 'loading' | 'idle' | 'info';
 
 interface StatusIndicatorProps {
   status: StatusType;
@@ -29,42 +32,50 @@ export default function StatusIndicator({
         return {
           icon: CheckCircle,
           color: COLORS.SUCCESS,
-          backgroundColor: 'rgba(0, 255, 159, 0.1)',
-          borderColor: 'rgba(0, 255, 159, 0.3)',
-          glowColor: 'rgba(0, 255, 159, 0.5)',
+          backgroundColor: 'rgba(0, 255, 159, 0.15)',
+          borderColor: COLORS.SUCCESS,
+          glowColor: 'rgba(0, 255, 159, 0.6)',
         };
       case 'error':
         return {
-          icon: AlertCircle,
+          icon: XCircle,
           color: COLORS.ERROR,
-          backgroundColor: 'rgba(255, 0, 85, 0.1)',
-          borderColor: 'rgba(255, 0, 85, 0.3)',
-          glowColor: 'rgba(255, 0, 85, 0.5)',
+          backgroundColor: 'rgba(255, 42, 109, 0.15)',
+          borderColor: COLORS.ERROR,
+          glowColor: 'rgba(255, 42, 109, 0.6)',
         };
       case 'warning':
         return {
-          icon: AlertCircle,
+          icon: AlertTriangle,
           color: COLORS.WARNING,
-          backgroundColor: 'rgba(255, 184, 0, 0.1)',
-          borderColor: 'rgba(255, 184, 0, 0.3)',
-          glowColor: 'rgba(255, 184, 0, 0.5)',
+          backgroundColor: 'rgba(255, 215, 0, 0.15)',
+          borderColor: COLORS.WARNING,
+          glowColor: 'rgba(255, 215, 0, 0.6)',
+        };
+      case 'info':
+        return {
+          icon: Info,
+          color: COLORS.ACCENT,
+          backgroundColor: 'rgba(54, 243, 255, 0.15)',
+          borderColor: COLORS.ACCENT,
+          glowColor: 'rgba(54, 243, 255, 0.6)',
         };
       case 'loading':
         return {
           icon: Loader,
           color: COLORS.PRIMARY,
-          backgroundColor: 'rgba(0, 255, 255, 0.1)',
-          borderColor: 'rgba(0, 255, 255, 0.3)',
-          glowColor: 'rgba(0, 255, 255, 0.5)',
+          backgroundColor: 'rgba(12, 255, 225, 0.15)',
+          borderColor: COLORS.PRIMARY,
+          glowColor: 'rgba(12, 255, 225, 0.6)',
         };
       case 'idle':
       default:
         return {
           icon: Clock,
           color: COLORS.GRAY_500,
-          backgroundColor: 'rgba(100, 116, 139, 0.1)',
-          borderColor: 'rgba(100, 116, 139, 0.3)',
-          glowColor: 'rgba(100, 116, 139, 0.2)',
+          backgroundColor: 'rgba(100, 116, 139, 0.15)',
+          borderColor: COLORS.GRAY_500,
+          glowColor: 'rgba(100, 116, 139, 0.3)',
         };
     }
   };
@@ -145,34 +156,29 @@ export default function StatusIndicator({
 const styles = StyleSheet.create({
   container: {
     borderWidth: 1,
-    borderRadius: 12,
-    marginVertical: 4,
-    shadowColor: COLORS.PRIMARY,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.5,
-    shadowRadius: 10,
-    elevation: 5,
+    borderRadius: BORDER_RADIUS.MD,
+    marginVertical: SPACING.SM,
+    ...createShadow(COLORS.GLOW, 'medium'),
   },
   content: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
   },
   textContainer: {
     flex: 1,
-    marginLeft: 12,
+    marginLeft: SPACING.MD,
   },
   message: {
     fontWeight: '600',
     lineHeight: 20,
     color: COLORS.WHITE,
-    textShadowColor: COLORS.GLOW,
-    textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 4,
+    textShadowColor: 'rgba(0, 0, 0, 0.5)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
   submessage: {
-    marginTop: 4,
+    marginTop: 2,
     lineHeight: 18,
-    opacity: 0.8,
     color: COLORS.GRAY_300,
   },
 });

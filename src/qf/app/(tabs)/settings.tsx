@@ -1,14 +1,24 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, Alert } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Switch, Alert, Animated } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Settings, Shield, Bell, Database, Smartphone, Lock, User, CircleHelp as HelpCircle, ChevronRight, Info } from 'lucide-react-native';
 import { StatusBar } from 'expo-status-bar';
+import { COLORS, ANIMATION } from '../../lib/constants';
+import { createCardStyle, createTextStyle, SPACING, BORDER_RADIUS } from '../../lib/theme';
+import { useGlowAnimation } from '../../lib/animations';
 
 export default function SettingsTab() {
   const [biometricEnabled, setBiometricEnabled] = useState(true);
   const [pushNotifications, setPushNotifications] = useState(true);
   const [dataCollection, setDataCollection] = useState(true);
   const [highSecurityMode, setHighSecurityMode] = useState(false);
+  
+  // Animation for glowing effect
+  const { glowAnim, startGlowAnimation } = useGlowAnimation(0.3, 0.7, ANIMATION.SLOW * 2);
+  
+  useEffect(() => {
+    // No continuous animations
+  }, []);
 
   const handleSecurityModeToggle = (value: boolean) => {
     if (value) {
@@ -65,7 +75,8 @@ export default function SettingsTab() {
     onPress, 
     hasSwitch = false, 
     switchValue, 
-    onSwitchChange 
+    onSwitchChange,
+    variant = 'primary'
   }: {
     icon: any;
     title: string;
@@ -74,143 +85,187 @@ export default function SettingsTab() {
     hasSwitch?: boolean;
     switchValue?: boolean;
     onSwitchChange?: (value: boolean) => void;
-  }) => (
-    <TouchableOpacity 
-      style={styles.settingItem} 
-      onPress={onPress}
-      disabled={hasSwitch}
-    >
-      <View style={styles.settingContent}>
-        <View style={styles.settingIcon}>
-          {icon}
+    variant?: 'primary' | 'secondary' | 'danger';
+  }) => {
+    // Determine colors based on variant
+    const getIconColor = () => {
+      switch(variant) {
+        case 'primary': return COLORS.PRIMARY;
+        case 'secondary': return COLORS.SECONDARY;
+        case 'danger': return COLORS.ERROR;
+        default: return COLORS.PRIMARY;
+      }
+    };
+    
+    const getGlowColor = () => {
+      switch(variant) {
+        case 'primary': return COLORS.GLOW;
+        case 'secondary': return COLORS.GLOW_SECONDARY;
+        case 'danger': return COLORS.ERROR;
+        default: return COLORS.GLOW;
+      }
+    };
+    
+    return (
+      <TouchableOpacity 
+        style={[styles.settingItem, { borderColor: getGlowColor() }]} 
+        onPress={onPress}
+        disabled={hasSwitch}
+      >
+        <View style={styles.settingContent}>
+          <Animated.View 
+            style={[styles.settingIcon, { 
+              shadowColor: getGlowColor(),
+              shadowOpacity: glowAnim,
+              shadowRadius: 10,
+              shadowOffset: { width: 0, height: 0 }
+            }]}
+          >
+            {React.cloneElement(icon, { color: getIconColor() })}
+          </Animated.View>
+          <View style={styles.settingText}>
+            <Text style={styles.settingTitle}>{title}</Text>
+            {subtitle && <Text style={styles.settingSubtitle}>{subtitle}</Text>}
+          </View>
         </View>
-        <View style={styles.settingText}>
-          <Text style={styles.settingTitle}>{title}</Text>
-          {subtitle && <Text style={styles.settingSubtitle}>{subtitle}</Text>}
-        </View>
-      </View>
-      {hasSwitch ? (
-        <Switch
-          value={switchValue}
-          onValueChange={onSwitchChange}
-          trackColor={{ false: '#D1D5DB', true: '#2563EB' }}
-          thumbColor="#FFFFFF"
-        />
-      ) : (
-        <ChevronRight size={20} color="#9CA3AF" />
-      )}
-    </TouchableOpacity>
-  );
+        {hasSwitch ? (
+          <Switch
+            value={switchValue}
+            onValueChange={onSwitchChange}
+            trackColor={{ false: COLORS.GRAY_700, true: getIconColor() }}
+            thumbColor={COLORS.WHITE}
+          />
+        ) : (
+          <ChevronRight size={20} color={COLORS.GRAY_300} />
+        )}
+      </TouchableOpacity>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar style="dark" />
+      <StatusBar style="light" />
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        <View style={styles.header}>
-          <Settings size={48} color="#2563EB" />
+        <Animated.View style={[styles.header, {
+          shadowColor: COLORS.GLOW,
+          shadowOpacity: glowAnim,
+          shadowRadius: 20,
+          shadowOffset: { width: 0, height: 0 }
+        }]}>
+          <Settings size={48} color={COLORS.PRIMARY} />
           <Text style={styles.title}>Settings</Text>
           <Text style={styles.subtitle}>Configure your security preferences</Text>
-        </View>
+        </Animated.View>
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Security Settings</Text>
-          <View style={styles.settingsCard}>
+          <View style={[styles.settingsCard, createCardStyle('primary')]}>
             <SettingItem
-              icon={<Shield size={24} color="#2563EB" />}
+              icon={<Shield size={24} />}
               title="Biometric Authentication"
               subtitle="Use fingerprint or face recognition"
               hasSwitch
               switchValue={biometricEnabled}
               onSwitchChange={setBiometricEnabled}
+              variant="primary"
             />
             <SettingItem
-              icon={<Lock size={24} color="#EF4444" />}
+              icon={<Lock size={24} />}
               title="High Security Mode"
               subtitle="Enhanced verification and monitoring"
               hasSwitch
               switchValue={highSecurityMode}
               onSwitchChange={handleSecurityModeToggle}
+              variant="danger"
             />
           </View>
         </View>
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Privacy & Data</Text>
-          <View style={styles.settingsCard}>
+          <View style={[styles.settingsCard, createCardStyle('secondary')]}>
             <SettingItem
-              icon={<Database size={24} color="#10B981" />}
+              icon={<Database size={24} />}
               title="Data Collection"
               subtitle="Allow sensor data collection for fraud detection"
               hasSwitch
               switchValue={dataCollection}
               onSwitchChange={setDataCollection}
+              variant="secondary"
             />
             <SettingItem
-              icon={<Bell size={24} color="#F59E0B" />}
+              icon={<Bell size={24} />}
               title="Push Notifications"
               subtitle="Receive security alerts and updates"
               hasSwitch
               switchValue={pushNotifications}
               onSwitchChange={setPushNotifications}
+              variant="secondary"
             />
           </View>
         </View>
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Account</Text>
-          <View style={styles.settingsCard}>
+          <View style={[styles.settingsCard, createCardStyle('minimal')]}>
             <SettingItem
-              icon={<User size={24} color="#6B7280" />}
+              icon={<User size={24} />}
               title="Profile Information"
               subtitle="Manage your account details"
               onPress={() => Alert.alert('Profile', 'Profile management coming soon')}
+              variant="primary"
             />
             <SettingItem
-              icon={<Smartphone size={24} color="#6B7280" />}
+              icon={<Smartphone size={24} />}
               title="Device Management"
               subtitle="Registered devices and sessions"
               onPress={() => Alert.alert('Devices', 'Device management coming soon')}
+              variant="primary"
             />
           </View>
         </View>
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Data Management</Text>
-          <View style={styles.settingsCard}>
+          <View style={[styles.settingsCard, createCardStyle('secondary')]}>
             <SettingItem
-              icon={<Database size={24} color="#2563EB" />}
+              icon={<Database size={24} />}
               title="Export Data"
               subtitle="Download your biometric patterns"
               onPress={exportData}
+              variant="secondary"
             />
             <SettingItem
-              icon={<Database size={24} color="#EF4444" />}
+              icon={<Database size={24} />}
               title="Clear All Data"
               subtitle="Permanently delete all stored data"
               onPress={clearData}
+              variant="danger"
             />
           </View>
         </View>
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Support</Text>
-          <View style={styles.settingsCard}>
+          <View style={[styles.settingsCard, createCardStyle('minimal')]}>
             <SettingItem
-              icon={<HelpCircle size={24} color="#6B7280" />}
+              icon={<HelpCircle size={24} />}
               title="Help Center"
               subtitle="Get help with QuadFusion"
               onPress={() => Alert.alert('Help', 'Help center coming soon')}
+              variant="primary"
             />
             <SettingItem
-              icon={<Info size={24} color="#6B7280" />}
+              icon={<Info size={24} />}
               title="About"
               subtitle="Version 1.0.0 - QuadFusion Security"
               onPress={() => Alert.alert('About', 'QuadFusion Biometric Authentication System\nVersion 1.0.0\n\nAdvanced multi-sensor fraud detection platform.')}
+              variant="primary"
             />
           </View>
         </View>
 
-        <View style={styles.systemInfo}>
+        <View style={[styles.systemInfo, createCardStyle('primary')]}>
           <Text style={styles.systemInfoTitle}>System Information</Text>
           <View style={styles.systemInfoGrid}>
             <View style={styles.systemInfoItem}>
@@ -239,52 +294,43 @@ export default function SettingsTab() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: COLORS.BACKGROUND,
   },
   scrollContent: {
-    padding: 20,
+    padding: SPACING.LG,
   },
   header: {
     alignItems: 'center',
-    marginBottom: 32,
+    marginBottom: SPACING.XXL,
   },
   title: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: '#1F2937',
-    marginTop: 16,
+    ...createTextStyle('title'),
+    marginTop: SPACING.MD,
   },
   subtitle: {
-    fontSize: 16,
-    color: '#6B7280',
-    marginTop: 4,
+    ...createTextStyle('subtitle'),
+    marginTop: SPACING.XS,
   },
   section: {
-    marginBottom: 24,
+    marginBottom: SPACING.XL,
   },
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#1F2937',
-    marginBottom: 12,
-    paddingHorizontal: 4,
+    ...createTextStyle('subtitle'),
+    marginBottom: SPACING.MD,
+    paddingHorizontal: SPACING.XS,
+    textTransform: 'uppercase',
+    letterSpacing: 1.2,
   },
   settingsCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+    // Card styles are applied from createCardStyle
   },
   settingItem: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: 16,
+    padding: SPACING.MD,
     borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
+    borderBottomColor: COLORS.GRAY_700,
   },
   settingContent: {
     flexDirection: 'row',
@@ -292,36 +338,28 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   settingIcon: {
-    marginRight: 16,
+    marginRight: SPACING.MD,
+    padding: SPACING.XS,
+    borderRadius: BORDER_RADIUS.FULL,
   },
   settingText: {
     flex: 1,
   },
   settingTitle: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: '#1F2937',
+    ...createTextStyle('body'),
     marginBottom: 2,
   },
   settingSubtitle: {
-    fontSize: 14,
-    color: '#6B7280',
+    ...createTextStyle('caption'),
   },
   systemInfo: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+    padding: SPACING.LG,
   },
   systemInfoTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#1F2937',
-    marginBottom: 16,
+    ...createTextStyle('subtitle'),
+    marginBottom: SPACING.MD,
+    textTransform: 'uppercase',
+    letterSpacing: 1.2,
   },
   systemInfoGrid: {
     flexDirection: 'row',
@@ -330,16 +368,14 @@ const styles = StyleSheet.create({
   },
   systemInfoItem: {
     width: '48%',
-    marginBottom: 12,
+    marginBottom: SPACING.MD,
   },
   systemInfoLabel: {
-    fontSize: 14,
-    color: '#6B7280',
-    marginBottom: 4,
+    ...createTextStyle('caption'),
+    marginBottom: SPACING.XS,
   },
   systemInfoValue: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1F2937',
+    ...createTextStyle('body'),
+    color: COLORS.PRIMARY,
   },
 });

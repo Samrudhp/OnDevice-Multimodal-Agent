@@ -1,9 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Dimensions, Animated } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ChartBar as BarChart3, TrendingUp, Shield, TriangleAlert as AlertTriangle, Users, Clock } from 'lucide-react-native';
 import { StatusBar } from 'expo-status-bar';
 import { VictoryChart, VictoryLine, VictoryArea, VictoryAxis, VictoryTheme } from 'victory-native';
+import { COLORS, ANIMATION } from '../../lib/constants';
+import { createCardStyle, createTextStyle, SPACING, BORDER_RADIUS } from '../../lib/theme';
+import { useGlowAnimation, usePulseAnimation } from '../../lib/animations';
 
 const screenWidth = Dimensions.get('window').width;
 
@@ -16,6 +19,14 @@ interface AnalyticsData {
 
 export default function AnalyticsTab() {
   const [analyticsData, setAnalyticsData] = useState<AnalyticsData[]>([]);
+  
+  // Animations
+  const { glowAnim, startGlowAnimation } = useGlowAnimation(0.3, 0.7, ANIMATION.SLOW * 2);
+  const { pulseAnim, startPulseAnimation } = usePulseAnimation(0.1, ANIMATION.NORMAL * 2);
+  
+  useEffect(() => {
+    // No continuous animations
+  }, []);
 
   useEffect(() => {
     // Generate sample analytics data
@@ -60,46 +71,70 @@ export default function AnalyticsTab() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar style="dark" />
+      <StatusBar style="light" />
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        <View style={styles.header}>
-          <BarChart3 size={48} color="#2563EB" />
+        <Animated.View style={[styles.header, {
+          shadowColor: COLORS.GLOW,
+          shadowOpacity: glowAnim,
+          shadowRadius: 20,
+          shadowOffset: { width: 0, height: 0 }
+        }]}>
+          <Animated.View style={{
+            transform: [{ scale: pulseAnim }],
+            shadowColor: COLORS.PRIMARY,
+            shadowOpacity: 0.8,
+            shadowRadius: 10,
+            shadowOffset: { width: 0, height: 0 }
+          }}>
+            <BarChart3 size={48} color={COLORS.PRIMARY} />
+          </Animated.View>
           <Text style={styles.title}>Security Analytics</Text>
           <Text style={styles.subtitle}>24-hour fraud detection overview</Text>
-        </View>
+        </Animated.View>
 
         <View style={styles.statsGrid}>
-          <View style={[styles.statCard, { backgroundColor: '#EFF6FF' }]}>
-            <Users size={32} color="#2563EB" />
+          <Animated.View style={[styles.statCard, createCardStyle('primary'), {
+            shadowOpacity: glowAnim
+          }]}>
+            <Users size={32} color={COLORS.PRIMARY} />
             <Text style={styles.statValue}>{totalAuthentications.toLocaleString()}</Text>
             <Text style={styles.statLabel}>Total Authentications</Text>
-          </View>
+          </Animated.View>
 
-          <View style={[styles.statCard, { backgroundColor: '#FEF2F2' }]}>
-            <AlertTriangle size={32} color="#EF4444" />
+          <Animated.View style={[styles.statCard, createCardStyle('secondary'), {
+            shadowColor: COLORS.ERROR,
+            shadowOpacity: glowAnim
+          }]}>
+            <AlertTriangle size={32} color={COLORS.ERROR} />
             <Text style={styles.statValue}>{totalFraudAttempts}</Text>
             <Text style={styles.statLabel}>Fraud Attempts</Text>
-          </View>
+          </Animated.View>
 
-          <View style={[styles.statCard, { backgroundColor: '#ECFDF5' }]}>
-            <Shield size={32} color="#10B981" />
+          <Animated.View style={[styles.statCard, createCardStyle('primary'), {
+            shadowColor: COLORS.SUCCESS,
+            shadowOpacity: glowAnim
+          }]}>
+            <Shield size={32} color={COLORS.SUCCESS} />
             <Text style={styles.statValue}>{successRate.toFixed(1)}%</Text>
             <Text style={styles.statLabel}>Success Rate</Text>
-          </View>
+          </Animated.View>
 
-          <View style={[styles.statCard, { backgroundColor: '#FEF3C7' }]}>
-            <TrendingUp size={32} color="#F59E0B" />
+          <Animated.View style={[styles.statCard, createCardStyle('secondary'), {
+            shadowColor: COLORS.WARNING,
+            shadowOpacity: glowAnim
+          }]}>
+            <TrendingUp size={32} color={COLORS.WARNING} />
             <Text style={styles.statValue}>{averageRiskScore.toFixed(0)}</Text>
             <Text style={styles.statLabel}>Avg Risk Score</Text>
-          </View>
+          </Animated.View>
         </View>
 
-        <View style={styles.chartCard}>
+        <View style={[styles.chartCard, createCardStyle('primary')]}>
           <View style={styles.chartHeader}>
             <Text style={styles.chartTitle}>Authentication Volume</Text>
             <View style={styles.chartLegend}>
               <View style={styles.legendItem}>
-                <View style={[styles.legendColor, { backgroundColor: '#2563EB' }]} />
+                <View style={[styles.legendColor, { backgroundColor: COLORS.PRIMARY }]} />
                 <Text style={styles.legendText}>Authentications</Text>
               </View>
             </View>
@@ -117,7 +152,7 @@ export default function AnalyticsTab() {
               <VictoryArea
                 data={chartData}
                 style={{
-                  data: { fill: '#2563EB', fillOpacity: 0.3, stroke: '#2563EB', strokeWidth: 2 },
+                  data: { fill: COLORS.PRIMARY, fillOpacity: 0.3, stroke: COLORS.PRIMARY, strokeWidth: 2 },
                 }}
                 animate={{
                   duration: 1000,
@@ -128,12 +163,12 @@ export default function AnalyticsTab() {
           </View>
         </View>
 
-        <View style={styles.chartCard}>
+        <View style={[styles.chartCard, createCardStyle('secondary')]}>
           <View style={styles.chartHeader}>
             <Text style={styles.chartTitle}>Risk Score Trend</Text>
             <View style={styles.chartLegend}>
               <View style={styles.legendItem}>
-                <View style={[styles.legendColor, { backgroundColor: '#F59E0B' }]} />
+                <View style={[styles.legendColor, { backgroundColor: COLORS.WARNING }]} />
                 <Text style={styles.legendText}>Risk Level</Text>
               </View>
             </View>
@@ -151,7 +186,7 @@ export default function AnalyticsTab() {
               <VictoryLine
                 data={riskChartData}
                 style={{
-                  data: { stroke: '#F59E0B', strokeWidth: 3 },
+                  data: { stroke: COLORS.WARNING, strokeWidth: 3 },
                 }}
                 animate={{
                   duration: 1000,
@@ -162,14 +197,28 @@ export default function AnalyticsTab() {
           </View>
         </View>
 
-        <View style={styles.alertsCard}>
+        <View style={[styles.alertsCard, createCardStyle('primary')]}>
           <View style={styles.alertsHeader}>
-            <AlertTriangle size={24} color="#EF4444" />
+            <Animated.View style={{
+              transform: [{ scale: pulseAnim }],
+              shadowColor: COLORS.ERROR,
+              shadowOpacity: 0.8,
+              shadowRadius: 10,
+              shadowOffset: { width: 0, height: 0 }
+            }}>
+              <AlertTriangle size={24} color={COLORS.ERROR} />
+            </Animated.View>
             <Text style={styles.alertsTitle}>Security Alerts</Text>
           </View>
 
           <View style={styles.alertItem}>
-            <View style={styles.alertIndicator} />
+            <Animated.View style={[styles.alertIndicator, {
+              backgroundColor: COLORS.ERROR,
+              shadowColor: COLORS.ERROR,
+              shadowOpacity: glowAnim,
+              shadowRadius: 5,
+              shadowOffset: { width: 0, height: 0 }
+            }]} />
             <View style={styles.alertContent}>
               <Text style={styles.alertText}>High risk authentication attempt detected</Text>
               <Text style={styles.alertTime}>2 minutes ago</Text>
@@ -177,7 +226,13 @@ export default function AnalyticsTab() {
           </View>
 
           <View style={styles.alertItem}>
-            <View style={[styles.alertIndicator, { backgroundColor: '#F59E0B' }]} />
+            <Animated.View style={[styles.alertIndicator, {
+              backgroundColor: COLORS.WARNING,
+              shadowColor: COLORS.WARNING,
+              shadowOpacity: glowAnim,
+              shadowRadius: 5,
+              shadowOffset: { width: 0, height: 0 }
+            }]} />
             <View style={styles.alertContent}>
               <Text style={styles.alertText}>Multiple failed biometric scans from same device</Text>
               <Text style={styles.alertTime}>15 minutes ago</Text>
@@ -185,7 +240,13 @@ export default function AnalyticsTab() {
           </View>
 
           <View style={styles.alertItem}>
-            <View style={[styles.alertIndicator, { backgroundColor: '#10B981' }]} />
+            <Animated.View style={[styles.alertIndicator, {
+              backgroundColor: COLORS.SUCCESS,
+              shadowColor: COLORS.SUCCESS,
+              shadowOpacity: glowAnim,
+              shadowRadius: 5,
+              shadowOffset: { width: 0, height: 0 }
+            }]} />
             <View style={styles.alertContent}>
               <Text style={styles.alertText}>System security scan completed successfully</Text>
               <Text style={styles.alertTime}>1 hour ago</Text>
@@ -193,9 +254,9 @@ export default function AnalyticsTab() {
           </View>
         </View>
 
-        <View style={styles.insightsCard}>
+        <View style={[styles.insightsCard, createCardStyle('secondary')]}>
           <View style={styles.insightsHeader}>
-            <Clock size={24} color="#2563EB" />
+            <Clock size={24} color={COLORS.SECONDARY} />
             <Text style={styles.insightsTitle}>Key Insights</Text>
           </View>
 
@@ -230,79 +291,59 @@ export default function AnalyticsTab() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: COLORS.BACKGROUND,
   },
   scrollContent: {
-    padding: 20,
+    padding: SPACING.LG,
   },
   header: {
     alignItems: 'center',
-    marginBottom: 32,
+    marginBottom: SPACING.XXL,
   },
   title: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: '#1F2937',
-    marginTop: 16,
+    ...createTextStyle('title'),
+    marginTop: SPACING.MD,
   },
   subtitle: {
-    fontSize: 16,
-    color: '#6B7280',
-    marginTop: 4,
+    ...createTextStyle('subtitle'),
+    marginTop: SPACING.XS,
   },
   statsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    marginBottom: 24,
+    marginBottom: SPACING.XL,
   },
   statCard: {
     width: '48%',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 16,
     alignItems: 'center',
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
+    marginBottom: SPACING.MD,
+    padding: SPACING.MD,
   },
   statValue: {
+    ...createTextStyle('title'),
     fontSize: 24,
-    fontWeight: '700',
-    color: '#1F2937',
-    marginTop: 8,
-    marginBottom: 4,
+    marginTop: SPACING.SM,
+    marginBottom: SPACING.XS,
   },
   statLabel: {
-    fontSize: 12,
-    color: '#6B7280',
+    ...createTextStyle('caption'),
     textAlign: 'center',
-    fontWeight: '500',
   },
   chartCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 24,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+    marginBottom: SPACING.XL,
+    padding: SPACING.LG,
   },
   chartHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: SPACING.MD,
   },
   chartTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#1F2937',
+    ...createTextStyle('subtitle'),
+    textTransform: 'uppercase',
+    letterSpacing: 1.2,
   },
   chartLegend: {
     flexDirection: 'row',
@@ -315,92 +356,73 @@ const styles = StyleSheet.create({
     width: 12,
     height: 12,
     borderRadius: 2,
-    marginRight: 6,
+    marginRight: SPACING.XS,
   },
   legendText: {
-    fontSize: 12,
-    color: '#6B7280',
+    ...createTextStyle('caption'),
   },
   chartContainer: {
     alignItems: 'center',
   },
   alertsCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 24,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+    marginBottom: SPACING.XL,
+    padding: SPACING.LG,
   },
   alertsHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: SPACING.MD,
   },
   alertsTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#1F2937',
-    marginLeft: 8,
+    ...createTextStyle('subtitle'),
+    marginLeft: SPACING.SM,
+    textTransform: 'uppercase',
+    letterSpacing: 1.2,
   },
   alertItem: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    paddingVertical: 12,
+    paddingVertical: SPACING.MD,
   },
   alertIndicator: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#EF4444',
+    width: 10,
+    height: 10,
+    borderRadius: BORDER_RADIUS.FULL,
     marginTop: 6,
-    marginRight: 12,
+    marginRight: SPACING.MD,
   },
   alertContent: {
     flex: 1,
   },
   alertText: {
-    fontSize: 14,
-    color: '#374151',
+    ...createTextStyle('body'),
     marginBottom: 2,
   },
   alertTime: {
-    fontSize: 12,
-    color: '#6B7280',
+    ...createTextStyle('caption'),
   },
   insightsCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+    padding: SPACING.LG,
   },
   insightsHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: SPACING.MD,
   },
   insightsTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#1F2937',
-    marginLeft: 8,
+    ...createTextStyle('subtitle'),
+    marginLeft: SPACING.SM,
+    textTransform: 'uppercase',
+    letterSpacing: 1.2,
   },
   insightsList: {
-    gap: 8,
+    gap: SPACING.SM,
   },
   insightItem: {
-    paddingVertical: 4,
+    paddingVertical: SPACING.XS,
   },
   insightText: {
-    fontSize: 14,
-    color: '#374151',
+    ...createTextStyle('body'),
     lineHeight: 20,
   },
 });
