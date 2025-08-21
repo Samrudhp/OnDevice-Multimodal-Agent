@@ -2,6 +2,14 @@
 export const API_BASE_URL = __DEV__ ? 'http://localhost:8000' : 'https://api.quadfusion.com';
 export const WS_BASE_URL = __DEV__ ? 'ws://localhost:8000' : 'wss://api.quadfusion.com';
 
+// API Connection Status
+export const API_CONNECTION_STATUS = {
+  CONNECTED: 'connected',
+  DISCONNECTED: 'disconnected',
+  CONNECTING: 'connecting',
+  ERROR: 'error'
+} as const;
+
 // Risk Assessment Levels
 export const RISK_LEVELS = {
   LOW: 'low',
@@ -35,19 +43,26 @@ export const SENSOR_CONFIG = {
   APP_USAGE_BUFFER_SIZE: 20,
 } as const;
 
-// UI Constants
+// UI Constants - Dark Cyber Theme
 export const COLORS = {
-  PRIMARY: '#2563EB',
-  SUCCESS: '#10B981',
-  WARNING: '#F59E0B',
-  ERROR: '#EF4444',
-  BACKGROUND: '#F9FAFB',
+  PRIMARY: '#00FFFF', // Cyan
+  SECONDARY: '#7B42F6', // Purple
+  ACCENT: '#00FF9F', // Neon Green
+  SUCCESS: '#00FF9F', // Neon Green
+  WARNING: '#FFB800', // Amber
+  ERROR: '#FF0055', // Neon Red
+  BACKGROUND: '#0A0E17', // Dark Blue-Black
+  SURFACE: '#141A26', // Slightly lighter dark blue
+  CARD: '#1C2333', // Card background
   WHITE: '#FFFFFF',
-  GRAY_100: '#F3F4F6',
-  GRAY_300: '#D1D5DB',
-  GRAY_500: '#6B7280',
-  GRAY_700: '#374151',
-  GRAY_900: '#1F2937',
+  BLACK: '#000000',
+  GRAY_100: '#E2E8F0',
+  GRAY_300: '#94A3B8',
+  GRAY_500: '#64748B',
+  GRAY_700: '#334155',
+  GRAY_900: '#0F172A',
+  GLOW: 'rgba(0, 255, 255, 0.5)', // Cyan glow effect
+  GRID: 'rgba(0, 255, 255, 0.1)', // Grid lines
 } as const;
 
 // Animation Durations

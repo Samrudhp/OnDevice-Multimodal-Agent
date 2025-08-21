@@ -1,8 +1,11 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Dimensions } from 'react-native';
 import * as Icons from 'lucide-react-native';
 import type { ProcessingResult, SensorData } from '../lib/api';
 import StatusIndicator from './StatusIndicator';
+import { COLORS } from '../lib/constants';
+
+const { width } = Dimensions.get('window');
 
 const Activity = Icons.Activity ?? (() => null);
 const Zap = Icons.Zap ?? (() => null);
@@ -25,13 +28,13 @@ export default function ProcessingResultDisplay({
   const getRiskColor = (riskLevel: string) => {
     switch (riskLevel) {
       case 'low':
-        return '#10B981';
+        return COLORS.SUCCESS;
       case 'medium':
-        return '#F59E0B';
+        return COLORS.WARNING;
       case 'high':
-        return '#EF4444';
+        return COLORS.ERROR;
       default:
-        return '#6B7280';
+        return COLORS.GRAY_500;
     }
   };
 
@@ -95,9 +98,14 @@ export default function ProcessingResultDisplay({
         <View style={styles.metricsContainer}>
           <View style={styles.metric}>
             <Text style={styles.metricLabel}>Anomaly Score</Text>
-            <Text style={styles.metricValue}>
-              {(result.anomaly_score * 100).toFixed(1)}%
-            </Text>
+            <View style={styles.scoreContainer}>
+              <View 
+                style={[styles.scoreBar, { width: `${result.anomaly_score * 100}%`, backgroundColor: getRiskColor(result.risk_level) }]} 
+              />
+              <Text style={styles.metricValue}>
+                {(result.anomaly_score * 100).toFixed(1)}%
+              </Text>
+            </View>
           </View>
           <View style={styles.metric}>
             <Text style={styles.metricLabel}>Confidence</Text>
@@ -213,56 +221,90 @@ export default function ProcessingResultDisplay({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    padding: 16,
+    backgroundColor: COLORS.BACKGROUND,
   },
   card: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: COLORS.CARD,
     borderRadius: 12,
     padding: 16,
     marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    borderWidth: 1,
+    borderColor: COLORS.GLOW,
+    shadowColor: COLORS.PRIMARY,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 5,
   },
   cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.GRAY_700,
+    paddingBottom: 12,
   },
   cardTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#1F2937',
+    color: COLORS.WHITE,
+    textShadowColor: COLORS.GLOW,
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 4,
   },
   riskBadge: {
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 16,
+    shadowColor: COLORS.PRIMARY,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 4,
   },
   riskBadgeText: {
-    color: '#FFFFFF',
+    color: COLORS.WHITE,
     fontSize: 12,
     fontWeight: '700',
   },
   metricsContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    flexWrap: 'wrap',
   },
   metric: {
     flex: 1,
+    minWidth: width / 2 - 32,
+    marginBottom: 16,
     alignItems: 'center',
   },
   metricLabel: {
     fontSize: 12,
-    color: '#6B7280',
+    color: COLORS.GRAY_300,
     marginBottom: 4,
   },
   metricValue: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#1F2937',
+    color: COLORS.WHITE,
+  },
+  scoreContainer: {
+    position: 'relative',
+    height: 32,
+    backgroundColor: COLORS.GRAY_700,
+    borderRadius: 16,
+    overflow: 'hidden',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  scoreBar: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    height: '100%',
+    borderRadius: 16,
+    opacity: 0.8,
   },
   agentResult: {
     paddingVertical: 12,

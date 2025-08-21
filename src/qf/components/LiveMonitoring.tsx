@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import * as Icons from 'lucide-react-native';
 import { SensorManager } from '../lib/sensor-manager';
@@ -6,6 +6,7 @@ import { QuadFusionAPI } from '../lib/api';
 import ProcessingResultDisplay from '../components/ProcessingResultDisplay';
 import StatusIndicator from '../components/StatusIndicator';
 import type { SensorData, ProcessingResult } from '../lib/api';
+import { AGENT_TYPES, API_CONNECTION_STATUS, COLORS } from '../lib/constants';
 
 const Play = Icons.Play ?? (() => null);
 const Square = Icons.Square ?? (() => null);
@@ -28,22 +29,101 @@ export default function LiveMonitoring({
   const [monitoringDuration, setMonitoringDuration] = useState(0);
   const [sensorManager] = useState(() => new SensorManager());
   const [api] = useState(() => new QuadFusionAPI());
+  const [modelsLoaded, setModelsLoaded] = useState(false);
+  const [isLoadingModels, setIsLoadingModels] = useState(false);
+  const [apiConnectionStatus, setApiConnectionStatus] = useState<typeof API_CONNECTION_STATUS[keyof typeof API_CONNECTION_STATUS]>(API_CONNECTION_STATUS.DISCONNECTED);
+  const [isUsingFallback, setIsUsingFallback] = useState(false);
+  const durationTimerRef = useRef<ReturnType<typeof setInterval> | undefined>(undefined);
 
   useEffect(() => {
-    let interval: ReturnType<typeof setInterval>;
+    // Initialize sensor manager and load models on component mount
+    const initialize = async () => {
+      await loadModels();
+    };
     
+    initialize();
+    
+    // Set up API connection status listener
+    const removeListener = api.addConnectionListener((status) => {
+      setApiConnectionStatus(status);
+      
+      // Update fallback state based on connection status
+      const usingFallback = status !== API_CONNECTION_STATUS.CONNECTED;
+      setIsUsingFallback(usingFallback);
+      
+      // Log connection status changes
+      if (status === API_CONNECTION_STATUS.DISCONNECTED) {
+        console.log('API disconnected, using fallback data');
+      } else if (status === API_CONNECTION_STATUS.CONNECTED) {
+        console.log('Connected to QuadFusion API server');
+      } else if (status === API_CONNECTION_STATUS.ERROR) {
+        console.log('API connection error, using fallback data');
+      } else if (status === API_CONNECTION_STATUS.CONNECTING) {
+        console.log('Connecting to QuadFusion API server...');
+      }
+    });
+    
+    return () => {
+      // Clean up on unmount
+      if (durationTimerRef.current) {
+        clearInterval(durationTimerRef.current);
+      }
+      removeListener();
+    };
+  }, []);
+  
+  useEffect(() => {
     if (isMonitoring) {
-      interval = setInterval(() => {
+      durationTimerRef.current = setInterval(() => {
         setMonitoringDuration((prev) => prev + 1);
       }, 1000);
     }
     
     return () => {
-      if (interval) {
-        clearInterval(interval);
+      if (durationTimerRef.current) {
+        clearInterval(durationTimerRef.current);
       }
     };
   }, [isMonitoring]);
+  
+  // Load models for all agent types
+  const loadModels = async () => {
+    try {
+      setIsLoadingModels(true);
+      
+      // Get current model status
+      const modelStatus = await api.getModelStatus();
+      console.log('Model status:', modelStatus);
+      
+      // Check if any models need to be loaded
+      const inactiveAgents = Object.entries(modelStatus.agents_status || {})
+        .filter(([_, status]) => !status.is_active)
+        .map(([agentType, _]) => agentType);
+      
+      if (inactiveAgents.length > 0) {
+        console.log(`Loading inactive models: ${inactiveAgents.join(', ')}`);
+        // Load only inactive models
+        const result = await api.loadModels(inactiveAgents);
+        console.log('Model loading result:', result);
+        
+        // Show success message to user
+        Alert.alert(
+          'Models Loaded', 
+          `Successfully loaded ${inactiveAgents.length} behavioral analysis models.`,
+          [{ text: 'OK' }]
+        );
+      } else {
+        console.log('All models are already active');
+      }
+      
+      setModelsLoaded(true);
+    } catch (error) {
+      console.error('Error loading models:', error);
+      Alert.alert('Warning', 'Some models could not be loaded. Functionality may be limited.');
+    } finally {
+      setIsLoadingModels(false);
+    }
+  };
 
   const formatDuration = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -120,12 +200,37 @@ export default function LiveMonitoring({
     try {
       setIsProcessing(true);
       
-      // Send data for real-time processing (need session ID for real API)
+      // Generate a unique session ID for this processing request
       const sessionId = 'live-monitoring-' + Date.now();
+      console.log(`Processing data with session ID: ${sessionId}`);
+      console.log(`Data points: ${data.touch_events.length} touch events, ${data.keystroke_events.length} keystroke events`);
+      
+      // Send data for real-time processing
       const result = await api.processRealtimeSensorData(sessionId, data);
+      
+      console.log('Processing result:', result);
+      console.log(`Anomaly score: ${result.anomaly_score}, Risk level: ${result.risk_level}`);
+      
+      // Display detailed agent results
+      const agentResults = Object.entries(result.agent_results || {});
+      if (agentResults.length > 0) {
+        console.log('Individual agent results:');
+        agentResults.forEach(([agentType, result]) => {
+          console.log(`- ${agentType}: score=${result.anomaly_score}, risk=${result.risk_level}, confidence=${result.confidence}`);
+        });
+      }
       
       setProcessingResult(result);
       onProcessingResult?.(result);
+      
+      // Show a toast or alert for high-risk results
+      if (result.risk_level === 'high') {
+        Alert.alert(
+          'High Risk Detected', 
+          `Anomalous behavior detected with ${Math.round(result.confidence * 100)}% confidence.`,
+          [{ text: 'Review', onPress: () => console.log('Review pressed') }, { text: 'Dismiss' }]
+        );
+      }
     } catch (error) {
       console.error('Error processing data:', error);
       Alert.alert('Error', 'Failed to process collected data.');
@@ -141,6 +246,14 @@ export default function LiveMonitoring({
   };
 
   const getMonitoringStatus = () => {
+    if (isLoadingModels) {
+      return {
+        status: 'loading' as const,
+        message: 'Loading Models',
+        submessage: 'Initializing behavioral analysis models...',
+      };
+    }
+    
     if (isMonitoring) {
       return {
         status: 'success' as const,
@@ -165,6 +278,14 @@ export default function LiveMonitoring({
       };
     }
     
+    if (!modelsLoaded) {
+      return {
+        status: 'warning' as const,
+        message: 'Models Not Loaded',
+        submessage: 'Tap to load behavioral analysis models',
+      };
+    }
+    
     return {
       status: 'idle' as const,
       message: 'Ready to Monitor',
@@ -177,13 +298,35 @@ export default function LiveMonitoring({
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       {/* Status Display */}
-      <View style={styles.statusCard}>
+      <TouchableOpacity 
+        style={styles.statusCard} 
+        onPress={() => !modelsLoaded && loadModels()}
+        disabled={isLoadingModels || isMonitoring || isProcessing}
+      >
         <StatusIndicator
           status={status.status}
           message={status.message}
           submessage={status.submessage}
           size="large"
         />
+      </TouchableOpacity>
+      
+      {/* API Connection Status */}
+      <View style={[styles.connectionStatus, 
+        apiConnectionStatus === API_CONNECTION_STATUS.CONNECTED ? styles.connectedStatus :
+        apiConnectionStatus === API_CONNECTION_STATUS.DISCONNECTED ? styles.disconnectedStatus :
+        apiConnectionStatus === API_CONNECTION_STATUS.ERROR ? styles.errorStatus :
+        styles.connectingStatus
+      ]}>
+        <Text style={styles.connectionStatusText}>
+          {apiConnectionStatus === API_CONNECTION_STATUS.CONNECTED ? 'Connected to API' :
+           apiConnectionStatus === API_CONNECTION_STATUS.DISCONNECTED ? 'API Disconnected - Using Fallback' :
+           apiConnectionStatus === API_CONNECTION_STATUS.ERROR ? 'API Error - Using Fallback' :
+           'Connecting to API...'}
+        </Text>
+        {isUsingFallback && (
+          <Text style={styles.fallbackNotice}>Using local fallback data</Text>
+        )}
       </View>
 
       {/* Control Panel */}
@@ -195,7 +338,7 @@ export default function LiveMonitoring({
             <TouchableOpacity
               style={[styles.controlButton, styles.startButton]}
               onPress={startMonitoring}
-              disabled={isProcessing}
+              disabled={isProcessing || isLoadingModels || !modelsLoaded}
             >
               <Play size={20} color="#FFFFFF" />
               <Text style={styles.startButtonText}>Start Monitoring</Text>
@@ -292,36 +435,82 @@ export default function LiveMonitoring({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: COLORS.BACKGROUND,
   },
   statusCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: COLORS.CARD,
     borderRadius: 12,
     padding: 20,
     margin: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowColor: COLORS.PRIMARY,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 5,
+    borderWidth: 1,
+    borderColor: COLORS.GLOW,
+  },
+  connectionStatus: {
+    padding: 8,
+    borderRadius: 4,
+    marginHorizontal: 16,
+    marginBottom: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  connectionStatusText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '600',
+    textShadowColor: 'rgba(0, 0, 0, 0.5)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
+  },
+  connectedStatus: {
+    backgroundColor: 'rgba(0, 255, 159, 0.2)',
+    borderColor: COLORS.SUCCESS,
+    borderWidth: 1,
+  },
+  disconnectedStatus: {
+    backgroundColor: 'rgba(255, 184, 0, 0.2)',
+    borderColor: COLORS.WARNING,
+    borderWidth: 1,
+  },
+  errorStatus: {
+    backgroundColor: 'rgba(255, 0, 85, 0.2)',
+    borderColor: COLORS.ERROR,
+    borderWidth: 1,
+  },
+  connectingStatus: {
+    backgroundColor: 'rgba(123, 66, 246, 0.2)',
+    borderColor: COLORS.SECONDARY,
+    borderWidth: 1,
   },
   controlCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: COLORS.CARD,
     borderRadius: 12,
     padding: 16,
     marginHorizontal: 16,
     marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowColor: COLORS.PRIMARY,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 5,
+    borderWidth: 1,
+    borderColor: COLORS.GLOW,
   },
   cardTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#1F2937',
+    color: COLORS.WHITE,
     marginBottom: 16,
+    textShadowColor: COLORS.GLOW,
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 4,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.GRAY_700,
+    paddingBottom: 12,
   },
   controlsContainer: {
     flexDirection: 'row',
@@ -337,30 +526,45 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     borderRadius: 8,
     gap: 8,
+    shadowColor: COLORS.GLOW,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 8,
+    elevation: 5,
   },
   startButton: {
-    backgroundColor: '#2563EB',
+    backgroundColor: COLORS.SUCCESS,
   },
   startButtonText: {
-    color: '#FFFFFF',
+    color: COLORS.WHITE,
     fontSize: 16,
     fontWeight: '600',
+    textShadowColor: 'rgba(0, 0, 0, 0.5)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
   stopButton: {
-    backgroundColor: '#EF4444',
+    backgroundColor: COLORS.ERROR,
   },
   stopButtonText: {
-    color: '#FFFFFF',
+    color: COLORS.WHITE,
     fontSize: 16,
     fontWeight: '600',
   },
+  fallbackNotice: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontStyle: 'italic',
+    opacity: 0.8,
+    marginTop: 2,
+  },
   resetButton: {
-    backgroundColor: '#F3F4F6',
+    backgroundColor: COLORS.GRAY_700,
     borderWidth: 1,
-    borderColor: '#D1D5DB',
+    borderColor: COLORS.GRAY_700,
   },
   resetButtonText: {
-    color: '#6B7280',
+    color: COLORS.GRAY_300,
     fontSize: 16,
     fontWeight: '600',
   },

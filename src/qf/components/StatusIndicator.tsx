@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import * as Icons from 'lucide-react-native';
+import { COLORS } from '../lib/constants';
 
 const CheckCircle = Icons.CheckCircle ?? (() => null);
 const AlertCircle = Icons.AlertCircle ?? (() => null);
@@ -27,38 +28,43 @@ export default function StatusIndicator({
       case 'success':
         return {
           icon: CheckCircle,
-          color: '#10B981',
-          backgroundColor: '#ECFDF5',
-          borderColor: '#A7F3D0',
+          color: COLORS.SUCCESS,
+          backgroundColor: 'rgba(0, 255, 159, 0.1)',
+          borderColor: 'rgba(0, 255, 159, 0.3)',
+          glowColor: 'rgba(0, 255, 159, 0.5)',
         };
       case 'error':
         return {
           icon: AlertCircle,
-          color: '#EF4444',
-          backgroundColor: '#FEF2F2',
-          borderColor: '#FECACA',
+          color: COLORS.ERROR,
+          backgroundColor: 'rgba(255, 0, 85, 0.1)',
+          borderColor: 'rgba(255, 0, 85, 0.3)',
+          glowColor: 'rgba(255, 0, 85, 0.5)',
         };
       case 'warning':
         return {
           icon: AlertCircle,
-          color: '#F59E0B',
-          backgroundColor: '#FFFBEB',
-          borderColor: '#FDE68A',
+          color: COLORS.WARNING,
+          backgroundColor: 'rgba(255, 184, 0, 0.1)',
+          borderColor: 'rgba(255, 184, 0, 0.3)',
+          glowColor: 'rgba(255, 184, 0, 0.5)',
         };
       case 'loading':
         return {
           icon: Loader,
-          color: '#2563EB',
-          backgroundColor: '#EFF6FF',
-          borderColor: '#BFDBFE',
+          color: COLORS.PRIMARY,
+          backgroundColor: 'rgba(0, 255, 255, 0.1)',
+          borderColor: 'rgba(0, 255, 255, 0.3)',
+          glowColor: 'rgba(0, 255, 255, 0.5)',
         };
       case 'idle':
       default:
         return {
           icon: Clock,
-          color: '#6B7280',
-          backgroundColor: '#F9FAFB',
-          borderColor: '#E5E7EB',
+          color: COLORS.GRAY_500,
+          backgroundColor: 'rgba(100, 116, 139, 0.1)',
+          borderColor: 'rgba(100, 116, 139, 0.3)',
+          glowColor: 'rgba(100, 116, 139, 0.2)',
         };
     }
   };
@@ -138,9 +144,14 @@ export default function StatusIndicator({
 
 const styles = StyleSheet.create({
   container: {
-    borderRadius: 8,
     borderWidth: 1,
+    borderRadius: 12,
     marginVertical: 4,
+    shadowColor: COLORS.PRIMARY,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.5,
+    shadowRadius: 10,
+    elevation: 5,
   },
   content: {
     flexDirection: 'row',
@@ -153,10 +164,15 @@ const styles = StyleSheet.create({
   message: {
     fontWeight: '600',
     lineHeight: 20,
+    color: COLORS.WHITE,
+    textShadowColor: COLORS.GLOW,
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 4,
   },
   submessage: {
-    color: '#6B7280',
     marginTop: 4,
     lineHeight: 18,
+    opacity: 0.8,
+    color: COLORS.GRAY_300,
   },
 });
