@@ -1,7 +1,7 @@
 import { Platform } from 'react-native';
 import { API_BASE_URL, API_CONNECTION_STATUS, WS_BASE_URL, TIMEOUTS } from './constants';
 
-// Types
+// Types matching the FastAPI server exactly
 export interface SensorData {
   touch_events: TouchEvent[];
   keystroke_events: KeystrokeEvent[];
@@ -69,26 +69,98 @@ export interface AgentResult {
   metadata: Record<string, any>;
 }
 
+// Fixed to match server response exactly
 export interface ModelStatus {
-  is_trained: boolean;
-  last_trained: string;
-  performance_metrics: {
-    accuracy: number;
-    precision: number;
-    recall: number;
-    f1_score: number;
-  };
-  agents_status: Record<string, {
-    is_active: boolean;
-    version: string;
+  models: Record<string, {
+    is_trained: boolean;
+    training_samples: number;
+    last_updated: string;
   }>;
 }
 
+// Fixed to match server response exactly
 export interface EnrollmentResult {
   enrollment_id: string;
-  status: 'enrolled' | 'pending' | 'failed';
+  status: 'enrolled' | 'failed'; // Removed 'pending' as server doesn't return it
   models_trained: string[];
   message: string;
+}
+
+// Server verification response structure
+export interface VerificationResult {
+  verification_result: {
+    is_authentic: boolean;
+    confidence_score: number;
+    risk_level: string;
+    agent_scores: Record<string, number>;
+    anomaly_details: string[];
+  };
+}
+
+// Server batch processing response
+export interface BatchProcessingResult {
+  batch_results: ProcessingResult[];
+  summary: {
+    total_samples: number;
+    anomalies_detected: number;
+    avg_processing_time_ms: number;
+    performance_metrics: {
+      total_processing_time_ms: number;
+      throughput_samples_per_second: number;
+    };
+  };
+}
+
+// Server model retrain response
+export interface ModelRetrainResult {
+  status: string;
+  model_type: string;
+  training_samples: number;
+  estimated_completion_time: string;
+  message: string;
+}
+
+// Server config response
+export interface SystemConfig {
+  agent_weights: Record<string, number>;
+  risk_thresholds: Record<string, number>;
+}
+
+export interface ConfigurationUpdate {
+  agent_weights?: Record<string, number>;
+  risk_thresholds?: Record<string, number>;
+  processing_config?: Record<string, any>;
+}
+
+// Server stress test response
+export interface StressTestResult {
+  stress_test_results: {
+    total_samples: number;
+    total_time_ms: number;
+    avg_processing_time_ms: number;
+    throughput_samples_per_second: number;
+    anomalies_detected: number;
+    results: Array<{
+      sample_id: number;
+      anomaly_score: number;
+      processing_time_ms: number;
+    }>;
+  };
+}
+
+// Server health check response
+export interface HealthCheckResult {
+  status: string;
+  timestamp: string;
+  quadfusion_available: boolean;
+  agents_initialized: number;
+  active_sessions: number;
+}
+
+// Server sample data response
+export interface SampleDataResult {
+  sample_data: any;
+  type: string;
 }
 
 // API Client Class
@@ -219,6 +291,7 @@ export class QuadFusionAPI {
     }
   }
 
+  // Authentication & User Management Endpoints
   async enrollUser(userId: string, biometricData: BiometricEnrollment): Promise<EnrollmentResult> {
     const deviceId = await this.getDeviceId();
     
@@ -232,17 +305,18 @@ export class QuadFusionAPI {
     });
   }
 
-  async verifyUser(userId: string, sessionId: string, sensorData: SensorData): Promise<ProcessingResult> {
-    return this.makeRequest<ProcessingResult>('/api/v1/auth/verify', {
+  // Fixed to match server endpoint exactly
+  async verifyUser(sessionId: string, sensorData: SensorData): Promise<VerificationResult> {
+    return this.makeRequest<VerificationResult>('/api/v1/auth/verify', {
       method: 'POST',
       body: JSON.stringify({
-        user_id: userId,
         session_id: sessionId,
         sensor_data: sensorData,
       }),
     });
   }
 
+  // Real-time Processing Endpoints
   async processRealtimeSensorData(sessionId: string, sensorData: SensorData): Promise<ProcessingResult> {
     // Create a default fallback response with mock data
     const defaultResponse: ProcessingResult = {
@@ -295,8 +369,8 @@ export class QuadFusionAPI {
     }, true, defaultResponse);
   }
 
-  async processBatchSensorData(sessionId: string, batchData: SensorData[]): Promise<any> {
-    return this.makeRequest('/api/v1/process/batch', {
+  async processBatchSensorData(sessionId: string, batchData: SensorData[]): Promise<BatchProcessingResult> {
+    return this.makeRequest<BatchProcessingResult>('/api/v1/process/batch', {
       method: 'POST',
       body: JSON.stringify({
         session_id: sessionId,
@@ -305,36 +379,57 @@ export class QuadFusionAPI {
     });
   }
 
+  // Model Management Endpoints
   async getModelStatus(): Promise<ModelStatus> {
     const defaultStatus: ModelStatus = {
-      is_trained: true,
-      last_trained: new Date().toISOString(),
-      performance_metrics: {
-        accuracy: 0.92,
-        precision: 0.89,
-        recall: 0.94,
-        f1_score: 0.91
-      },
-      agents_status: {
-        [AGENT_TYPES.TOUCH]: { is_active: true, version: '1.0.0' },
-        [AGENT_TYPES.TYPING]: { is_active: true, version: '1.0.0' },
-        [AGENT_TYPES.VOICE]: { is_active: true, version: '1.0.0' },
-        [AGENT_TYPES.VISUAL]: { is_active: true, version: '1.0.0' },
-        [AGENT_TYPES.MOVEMENT]: { is_active: true, version: '1.0.0' },
-        [AGENT_TYPES.APP_USAGE]: { is_active: true, version: '1.0.0' }
+      models: {
+        [AGENT_TYPES.TOUCH.toLowerCase().replace('agent', '')]: { 
+          is_trained: true, 
+          training_samples: 0, 
+          last_updated: new Date().toISOString() 
+        },
+        [AGENT_TYPES.TYPING.toLowerCase().replace('agent', '')]: { 
+          is_trained: true, 
+          training_samples: 0, 
+          last_updated: new Date().toISOString() 
+        },
+        [AGENT_TYPES.VOICE.toLowerCase().replace('agent', '')]: { 
+          is_trained: true, 
+          training_samples: 0, 
+          last_updated: new Date().toISOString() 
+        },
+        [AGENT_TYPES.VISUAL.toLowerCase().replace('agent', '')]: { 
+          is_trained: true, 
+          training_samples: 0, 
+          last_updated: new Date().toISOString() 
+        },
+        [AGENT_TYPES.MOVEMENT.toLowerCase().replace('agent', '')]: { 
+          is_trained: true, 
+          training_samples: 0, 
+          last_updated: new Date().toISOString() 
+        },
+        [AGENT_TYPES.APP_USAGE.toLowerCase().replace('agent', '')]: { 
+          is_trained: true, 
+          training_samples: 0, 
+          last_updated: new Date().toISOString() 
+        }
       }
     };
     
     return this.makeRequest<ModelStatus>('/api/v1/models/status', {}, true, defaultStatus);
   }
 
-  async retrainModel(modelType: string, trainingData: any[], config: any): Promise<{ success: boolean; message: string }> {
-    const defaultResponse = {
-      success: true,
-      message: 'Model retraining initiated successfully. This process may take several minutes.'
+  // Fixed to match server response exactly
+  async retrainModel(modelType: string, trainingData: any[], config: any): Promise<ModelRetrainResult> {
+    const defaultResponse: ModelRetrainResult = {
+      status: 'retraining_started',
+      model_type: modelType,
+      training_samples: trainingData.length,
+      estimated_completion_time: '5 minutes',
+      message: `Retraining ${modelType} models with ${trainingData.length} samples`
     };
     
-    return this.makeRequest<{ success: boolean; message: string }>('/api/v1/models/retrain', {
+    return this.makeRequest<ModelRetrainResult>('/api/v1/models/retrain', {
       method: 'POST',
       body: JSON.stringify({
         model_type: modelType,
@@ -343,37 +438,35 @@ export class QuadFusionAPI {
       }),
     }, true, defaultResponse);
   }
-  
-  // Load models for specific agent types
-  async loadModels(agentTypes: string[] = Object.values(AGENT_TYPES)): Promise<{ success: boolean; message: string }> {
-    const defaultResponse = {
-      success: true,
-      message: `Models for ${agentTypes.join(', ')} loaded successfully.`
-    };
-    
-    return this.makeRequest<{ success: boolean; message: string }>('/api/v1/models/load', {
-      method: 'POST',
-      body: JSON.stringify({ agent_types: agentTypes }),
-    }, true, defaultResponse);
+
+  // Configuration Endpoints
+  async getConfig(): Promise<SystemConfig> {
+    return this.makeRequest<SystemConfig>('/api/v1/config');
   }
 
-  async getConfig(): Promise<any> {
-    return this.makeRequest('/api/v1/config');
-  }
-
-  async updateConfig(config: any): Promise<any> {
+  async updateConfig(config: ConfigurationUpdate): Promise<{
+    status: string;
+    updated_fields: Record<string, boolean>;
+    current_config: SystemConfig;
+  }> {
     return this.makeRequest('/api/v1/config', {
       method: 'PUT',
       body: JSON.stringify(config),
     });
   }
 
-  async generateSampleData(): Promise<any> {
-    return this.makeRequest('/api/v1/demo/generate-sample-data');
+  // Utility Endpoints
+  async generateSampleData(): Promise<SampleDataResult> {
+    return this.makeRequest<SampleDataResult>('/api/v1/demo/generate-sample-data');
   }
 
-  async healthCheck(): Promise<any> {
-    return this.makeRequest('/health');
+  // Added missing stress test endpoint
+  async runStressTest(numSamples: number = 100): Promise<StressTestResult> {
+    return this.makeRequest<StressTestResult>(`/api/v1/demo/stress-test?num_samples=${numSamples}`);
+  }
+
+  async healthCheck(): Promise<HealthCheckResult> {
+    return this.makeRequest<HealthCheckResult>('/health');
   }
 
   private async getDeviceId(): Promise<string> {
@@ -386,10 +479,16 @@ export class QuadFusionAPI {
     }
   }
 
-  // WebSocket connection for real-time streaming
+  // WebSocket connection for real-time streaming - Fixed URL construction
   createWebSocketConnection(sessionId: string, onMessage: (data: any) => void): WebSocket {
-    const ws = new WebSocket(`${WS_BASE_URL}/api/v1/stream/${sessionId}`);
+    // Convert HTTP URL to WebSocket URL properly
+    const wsUrl = this.baseURL.replace(/^https?/, this.baseURL.startsWith('https') ? 'wss' : 'ws');
+    const ws = new WebSocket(`${wsUrl}/api/v1/stream/${sessionId}`);
     
+    ws.onopen = () => {
+      console.log(`WebSocket connected for session ${sessionId}`);
+    };
+
     ws.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
@@ -403,7 +502,23 @@ export class QuadFusionAPI {
       console.error('WebSocket error:', error);
     };
 
+    ws.onclose = (event) => {
+      console.log(`WebSocket closed for session ${sessionId}:`, event.code, event.reason);
+    };
+
     return ws;
+  }
+
+  // Send data through WebSocket
+  sendWebSocketData(ws: WebSocket, sensorData: SensorData) {
+    if (ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({
+        type: 'sensor_data',
+        data: sensorData
+      }));
+    } else {
+      console.warn('WebSocket is not open. Ready state:', ws.readyState);
+    }
   }
 }
 
@@ -424,4 +539,12 @@ export const AGENT_TYPES = {
   VISUAL: 'VisualAgent',
   MOVEMENT: 'MovementAgent',
   APP_USAGE: 'AppUsageAgent',
+} as const;
+
+// WebSocket message types
+export const WS_MESSAGE_TYPES = {
+  SENSOR_DATA: 'sensor_data',
+  PROCESSING_RESULT: 'processing_result',
+  FRAUD_ALERT: 'fraud_alert',
+  ERROR: 'error',
 } as const;
