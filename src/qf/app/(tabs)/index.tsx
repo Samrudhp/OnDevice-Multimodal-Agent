@@ -118,6 +118,90 @@ export default function AuthenticationTab() {
       <StatusBar style="light" />
       <GridBackground spacing={30} opacity={0.15} />
       <ScrollView contentContainerStyle={styles.scrollContent}>
+        <View style={styles.securityDashboard}>
+          <View style={styles.securityMetrics}>
+            <View style={styles.metricCard}>
+              <Activity size={24} color={COLORS.ACCENT} />
+              <Text style={styles.metricValue}>98.5%</Text>
+              <Text style={styles.metricLabel}>System Uptime</Text>
+            </View>
+            <View style={styles.metricCard}>
+              <Shield size={24} color={COLORS.ACCENT} />
+              <Text style={styles.metricValue}>24/7</Text>
+              <Text style={styles.metricLabel}>Active Protection</Text>
+            </View>
+            <View style={styles.metricCard}>
+              <AlertTriangle size={24} color={COLORS.WARNING} />
+              <Text style={styles.metricValue}>2</Text>
+              <Text style={styles.metricLabel}>Active Threats</Text>
+            </View>
+          </View>
+        </View>
+
+        <View style={styles.visualizationSection}>
+          <Text style={styles.sectionTitle}>Security Visualization</Text>
+          <View style={styles.visualizationCard}>
+            <View style={styles.visualHeader}>
+              <Shield size={20} color={COLORS.ACCENT} />
+              <Text style={styles.visualTitle}>Threat Detection</Text>
+            </View>
+            <View style={styles.threatMap}>
+              <View style={[styles.threatPoint, { top: '20%', left: '30%' }]} />
+              <View style={[styles.threatPoint, { top: '60%', left: '70%' }]} />
+              <View style={[styles.threatPoint, { top: '40%', left: '50%' }]} />
+            </View>
+            <View style={styles.threatStats}>
+              <View style={styles.threatStatItem}>
+                <View style={[styles.threatIndicator, styles.threatLow]} />
+                <Text style={styles.threatLabel}>Low Risk</Text>
+              </View>
+              <View style={styles.threatStatItem}>
+                <View style={[styles.threatIndicator, styles.threatMedium]} />
+                <Text style={styles.threatLabel}>Medium Risk</Text>
+              </View>
+              <View style={styles.threatStatItem}>
+                <View style={[styles.threatIndicator, styles.threatHigh]} />
+                <Text style={styles.threatLabel}>High Risk</Text>
+              </View>
+            </View>
+          </View>
+        </View>
+        
+        <View style={styles.monitoringSection}>
+          <Text style={styles.sectionTitle}>Real-time Monitoring</Text>
+          <View style={styles.monitoringGrid}>
+            <View style={styles.monitorCard}>
+              <View style={styles.monitorHeader}>
+                <Activity size={20} color={COLORS.ACCENT} />
+                <Text style={styles.monitorTitle}>Network Activity</Text>
+              </View>
+              <View style={styles.monitorStats}>
+                <Text style={styles.statValue}>1.2 GB/s</Text>
+                <Text style={styles.statLabel}>Current Throughput</Text>
+              </View>
+              <View style={styles.monitorStats}>
+                <Text style={styles.statValue}>45ms</Text>
+                <Text style={styles.statLabel}>Average Latency</Text>
+              </View>
+            </View>
+            
+            <View style={styles.monitorCard}>
+              <View style={styles.monitorHeader}>
+                <Shield size={20} color={COLORS.ACCENT} />
+                <Text style={styles.monitorTitle}>Security Status</Text>
+              </View>
+              <View style={styles.monitorStats}>
+                <Text style={styles.statValue}>256</Text>
+                <Text style={styles.statLabel}>Threats Blocked Today</Text>
+              </View>
+              <View style={styles.monitorStats}>
+                <Text style={styles.statValue}>99.9%</Text>
+                <Text style={styles.statLabel}>Protection Rate</Text>
+              </View>
+            </View>
+          </View>
+        </View>
+
         <View style={styles.header}>
           <View style={styles.headerTop}>
             <View style={styles.cornerAccent} />
@@ -183,7 +267,7 @@ export default function AuthenticationTab() {
               <Text style={styles.logoutButtonText}>Logout</Text>
             </TouchableOpacity>
           )}
-  </Animated.View>
+        </Animated.View>
 
         {authHistory.length > 0 && (
           <Animated.View style={[styles.historyCard, {
@@ -261,6 +345,151 @@ export default function AuthenticationTab() {
 }
 
 const styles = StyleSheet.create({
+  securityDashboard: {
+    marginHorizontal: SPACING.MD,
+    marginBottom: SPACING.LG,
+  },
+  securityMetrics: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: SPACING.MD,
+  },
+  metricCard: {
+    flex: 1,
+    backgroundColor: COLORS.CARD,
+    borderRadius: BORDER_RADIUS.MD,
+    padding: SPACING.MD,
+    marginHorizontal: SPACING.XS,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.ACCENT,
+  },
+  metricValue: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: COLORS.WHITE,
+    marginVertical: SPACING.XS,
+  },
+  metricLabel: {
+    fontSize: 12,
+    color: COLORS.GRAY_300,
+    textAlign: 'center',
+  },
+  monitoringSection: {
+    marginHorizontal: SPACING.MD,
+    marginBottom: SPACING.LG,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: COLORS.WHITE,
+    marginBottom: SPACING.MD,
+  },
+  monitoringGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    gap: SPACING.MD,
+  },
+  monitorCard: {
+    flex: 1,
+    minWidth: '48%',
+    backgroundColor: COLORS.CARD,
+    borderRadius: BORDER_RADIUS.MD,
+    padding: SPACING.MD,
+    borderWidth: 1,
+    borderColor: COLORS.ACCENT,
+  },
+  monitorHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: SPACING.MD,
+  },
+  monitorTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.WHITE,
+    marginLeft: SPACING.XS,
+  },
+  monitorStats: {
+    marginBottom: SPACING.SM,
+  },
+  statValue: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: COLORS.WHITE,
+  },
+  statLabel: {
+    fontSize: 12,
+    color: COLORS.GRAY_300,
+    marginTop: SPACING.XS,
+  },
+  visualizationSection: {
+    marginHorizontal: SPACING.MD,
+    marginBottom: SPACING.LG,
+  },
+  visualizationCard: {
+    backgroundColor: COLORS.CARD,
+    borderRadius: BORDER_RADIUS.MD,
+    padding: SPACING.MD,
+    borderWidth: 1,
+    borderColor: COLORS.ACCENT,
+  },
+  visualHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: SPACING.MD,
+  },
+  visualTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.WHITE,
+    marginLeft: SPACING.XS,
+  },
+  threatMap: {
+    height: 150,
+    backgroundColor: COLORS.BACKGROUND,
+    borderRadius: BORDER_RADIUS.SM,
+    marginBottom: SPACING.MD,
+    position: 'relative',
+    borderWidth: 1,
+    borderColor: COLORS.GRAY_700,
+  },
+  threatPoint: {
+    position: 'absolute',
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: COLORS.WARNING,
+  },
+  threatStats: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    paddingTop: SPACING.SM,
+  },
+  threatStatItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  threatIndicator: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginRight: SPACING.XS,
+  },
+  threatLow: {
+    backgroundColor: COLORS.SUCCESS,
+  },
+  threatMedium: {
+    backgroundColor: COLORS.WARNING,
+  },
+  threatHigh: {
+    backgroundColor: COLORS.ERROR,
+  },
+  threatLabel: {
+    fontSize: 12,
+    color: COLORS.GRAY_300,
+  },
   container: {
     flex: 1,
     backgroundColor: COLORS.BACKGROUND,

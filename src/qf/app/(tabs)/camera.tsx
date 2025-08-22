@@ -1,9 +1,13 @@
 import React, { useState, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, Animated } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { CameraView, CameraType, useCameraPermissions } from 'expo-camera';
 import { Camera, RotateCcw, CircleCheck as CheckCircle, CircleAlert as AlertCircle, Eye } from 'lucide-react-native';
 import { StatusBar } from 'expo-status-bar';
+import { COLORS, ANIMATION } from '../../lib/constants';
+import { SPACING, BORDER_RADIUS } from '../../lib/theme';
+import GridBackground from '../../components/GridBackground';
+import { useGlowAnimation, usePulseAnimation } from '../../lib/animations';
 
 export default function CameraTab() {
   const [facing, setFacing] = useState<CameraType>('front');
@@ -15,6 +19,9 @@ export default function CameraTab() {
     biometricMatch: boolean;
   } | null>(null);
   const cameraRef = useRef<CameraView>(null);
+  
+  const { glowAnim, startGlowAnimation } = useGlowAnimation(0.4, 0.8);
+  const { pulseAnim, startPulseAnimation } = usePulseAnimation(0.05);
 
   if (!permission) {
     return (
@@ -91,11 +98,12 @@ export default function CameraTab() {
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar style="light" />
-      <View style={styles.header}>
-        <Eye size={32} color="#FFFFFF" />
+      <GridBackground spacing={30} opacity={0.15} />
+      <Animated.View style={[styles.header, { shadowOpacity: glowAnim }]}>
+        <Eye size={32} color={COLORS.ACCENT} />
         <Text style={styles.title}>Facial Recognition</Text>
         <Text style={styles.subtitle}>Position your face in the camera frame</Text>
-      </View>
+      </Animated.View>
 
       <View style={styles.cameraContainer}>
         <CameraView style={styles.camera} facing={facing} ref={cameraRef}>
@@ -176,75 +184,111 @@ export default function CameraTab() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000000',
+    backgroundColor: COLORS.BACKGROUND,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#F8FAFC',
+    backgroundColor: COLORS.BACKGROUND,
   },
   loadingText: {
     fontSize: 16,
-    color: '#6B7280',
-    marginTop: 16,
+    color: COLORS.GRAY_300,
+    marginTop: SPACING.MD,
+    textShadowColor: COLORS.GLOW,
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 2,
   },
   permissionContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#F8FAFC',
-    padding: 40,
+    backgroundColor: COLORS.BACKGROUND,
+    padding: SPACING.XL,
   },
   permissionTitle: {
     fontSize: 24,
     fontWeight: '700',
-    color: '#1F2937',
-    marginTop: 24,
-    marginBottom: 16,
+    color: COLORS.WHITE,
+    marginTop: SPACING.LG,
+    marginBottom: SPACING.MD,
     textAlign: 'center',
+    textShadowColor: COLORS.GLOW,
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 4,
   },
   permissionMessage: {
     fontSize: 16,
-    color: '#6B7280',
+    color: COLORS.GRAY_300,
     textAlign: 'center',
     lineHeight: 24,
-    marginBottom: 32,
+    marginBottom: SPACING.XL,
+    textShadowColor: COLORS.GLOW,
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 2,
   },
   permissionButton: {
-    backgroundColor: '#2563EB',
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 12,
+    backgroundColor: COLORS.PRIMARY,
+    paddingHorizontal: SPACING.LG,
+    paddingVertical: SPACING.SM,
+    borderRadius: BORDER_RADIUS.MD,
+    borderWidth: 1,
+    borderColor: COLORS.ACCENT,
+    shadowColor: COLORS.GLOW,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 10,
   },
   permissionButtonText: {
-    color: '#FFFFFF',
+    color: COLORS.WHITE,
     fontSize: 16,
     fontWeight: '600',
+    textShadowColor: COLORS.GLOW,
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 4,
   },
   header: {
     alignItems: 'center',
-    paddingTop: 20,
-    paddingBottom: 20,
+    paddingTop: SPACING.MD,
+    paddingBottom: SPACING.MD,
     backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.GLOW,
+    shadowColor: COLORS.GLOW,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.8,
+    shadowRadius: 10,
   },
   title: {
     fontSize: 24,
     fontWeight: '700',
-    color: '#FFFFFF',
-    marginTop: 12,
+    color: COLORS.WHITE,
+    marginTop: SPACING.SM,
+    textShadowColor: COLORS.GLOW,
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 4,
   },
   subtitle: {
     fontSize: 14,
-    color: '#D1D5DB',
-    marginTop: 4,
+    color: COLORS.GRAY_300,
+    marginTop: SPACING.XS,
+    textShadowColor: COLORS.GLOW,
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 2,
   },
   cameraContainer: {
     flex: 1,
-    marginHorizontal: 20,
-    marginBottom: 20,
-    borderRadius: 16,
+    marginHorizontal: SPACING.MD,
+    marginBottom: SPACING.MD,
+    borderRadius: BORDER_RADIUS.XL,
     overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: COLORS.GLOW,
+    shadowColor: COLORS.GLOW,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 10,
   },
   camera: {
     flex: 1,
@@ -258,10 +302,14 @@ const styles = StyleSheet.create({
   faceFrame: {
     width: 200,
     height: 200,
-    borderWidth: 3,
-    borderColor: '#FFFFFF',
+    borderWidth: 2,
+    borderColor: COLORS.ACCENT,
     borderRadius: 100,
     backgroundColor: 'transparent',
+    shadowColor: COLORS.GLOW,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 10,
   },
   resultBadge: {
     position: 'absolute',
@@ -281,68 +329,110 @@ const styles = StyleSheet.create({
   controls: {
     flexDirection: 'row',
     justifyContent: 'space-around',
-    paddingHorizontal: 20,
-    paddingBottom: 20,
+    paddingHorizontal: SPACING.MD,
+    paddingBottom: SPACING.MD,
     backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    borderTopWidth: 1,
+    borderTopColor: COLORS.GLOW,
+    shadowColor: COLORS.GLOW,
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.8,
+    shadowRadius: 10,
   },
   controlButton: {
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 16,
+    backgroundColor: COLORS.CARD,
+    borderRadius: BORDER_RADIUS.MD,
+    padding: SPACING.MD,
     flex: 0.4,
+    borderWidth: 1,
+    borderColor: COLORS.ACCENT,
+    shadowColor: COLORS.GLOW,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 10,
   },
   controlButtonText: {
-    color: '#2563EB',
+    color: COLORS.PRIMARY,
     fontSize: 14,
     fontWeight: '600',
-    marginTop: 4,
+    marginTop: SPACING.XS,
+    textShadowColor: COLORS.GLOW,
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 4,
   },
   analyzeButton: {
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#2563EB',
-    borderRadius: 12,
-    padding: 16,
+    backgroundColor: COLORS.PRIMARY,
+    borderRadius: BORDER_RADIUS.MD,
+    padding: SPACING.MD,
     flex: 0.5,
     flexDirection: 'row',
+    borderWidth: 1,
+    borderColor: COLORS.ACCENT,
+    shadowColor: COLORS.GLOW,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 10,
   },
   analyzeButtonActive: {
-    backgroundColor: '#F59E0B',
+    backgroundColor: COLORS.WARNING,
   },
   analyzeButtonText: {
-    color: '#FFFFFF',
+    color: COLORS.WHITE,
     fontSize: 14,
     fontWeight: '600',
-    marginLeft: 8,
+    marginLeft: SPACING.XS,
+    textShadowColor: COLORS.GLOW,
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 4,
   },
   resultsCard: {
-    backgroundColor: '#FFFFFF',
-    margin: 20,
+    backgroundColor: COLORS.CARD,
+    margin: SPACING.MD,
     marginTop: 0,
-    borderRadius: 16,
-    padding: 20,
+    borderRadius: BORDER_RADIUS.LG,
+    padding: SPACING.MD,
+    borderWidth: 1,
+    borderColor: COLORS.GLOW,
+    shadowColor: COLORS.GLOW,
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 10,
   },
   resultsTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#1F2937',
-    marginBottom: 16,
+    color: COLORS.WHITE,
+    marginBottom: SPACING.MD,
+    textShadowColor: COLORS.GLOW,
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 4,
   },
   resultItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 8,
+    paddingVertical: SPACING.XS,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.GRAY_700,
   },
   resultLabel: {
     fontSize: 16,
-    color: '#374151',
+    color: COLORS.GRAY_300,
     fontWeight: '500',
+    textShadowColor: COLORS.GLOW,
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 2,
   },
   resultValue: {
     fontSize: 16,
     fontWeight: '600',
+    color: COLORS.WHITE,
+    textShadowColor: COLORS.GLOW,
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 2,
   },
 });
