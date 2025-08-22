@@ -183,7 +183,7 @@ export default function AuthenticationTab() {
               <Text style={styles.logoutButtonText}>Logout</Text>
             </TouchableOpacity>
           )}
-        </View>
+  </Animated.View>
 
         {authHistory.length > 0 && (
           <Animated.View style={[styles.historyCard, {
