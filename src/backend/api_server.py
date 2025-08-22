@@ -99,7 +99,7 @@ class MotionData(BaseModel):
 
 class AppUsageEvent(BaseModel):
     app_name: str
-    action: str = Field(..., regex="^(open|close|switch_to)$")
+    action: str = Field(..., pattern="^(open|close|switch_to)$")
     timestamp: float
 
 class SensorData(BaseModel):
@@ -134,7 +134,7 @@ class BatchProcessingRequest(BaseModel):
     batch_data: List[SensorData]
 
 class ModelRetrainRequest(BaseModel):
-    model_type: str = Field(..., regex="^(typing|touch|voice|visual|movement|all)$")
+    model_type: str = Field(..., pattern="^(typing|touch|voice|visual|movement|all)$")
     training_data: List[Dict[str, Any]] = []
     config: Dict[str, Any] = {}
 
