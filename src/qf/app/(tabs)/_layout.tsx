@@ -147,6 +147,12 @@ export default function TabLayout() {
   
   // Animation for the active tab indicator
   const indicatorAnim = useRef(new Animated.Value(0)).current;
+  // Use scaleX on a fixed-width indicator instead of animating width directly
+  const indicatorScale = indicatorAnim.interpolate({
+    inputRange: [0, 15],
+    outputRange: [1, 1.5],
+    extrapolate: 'clamp'
+  });
   
   useEffect(() => {
     // No continuous animations
@@ -196,10 +202,8 @@ export default function TabLayout() {
               {focused && (
                 <Animated.View 
                   style={[styles.activeIndicator, {
-                    width: Animated.multiply(indicatorAnim, screenDimensions.isSmallDevice ? 10 : 15).interpolate({
-                      inputRange: [0, 15],
-                      outputRange: [screenDimensions.isSmallDevice ? 20 : 30, screenDimensions.isSmallDevice ? 30 : 45]
-                    }),
+                    width: screenDimensions.isSmallDevice ? 20 : 30,
+                    transform: [{ scaleX: indicatorScale }],
                     opacity: glowAnim
                   }]} 
                 />
@@ -222,10 +226,8 @@ export default function TabLayout() {
               {focused && (
                 <Animated.View 
                   style={[styles.activeIndicator, {
-                    width: Animated.multiply(indicatorAnim, screenDimensions.isSmallDevice ? 10 : 15).interpolate({
-                      inputRange: [0, 15],
-                      outputRange: [screenDimensions.isSmallDevice ? 20 : 30, screenDimensions.isSmallDevice ? 30 : 45]
-                    }),
+                    width: screenDimensions.isSmallDevice ? 20 : 30,
+                    transform: [{ scaleX: indicatorScale }],
                     opacity: glowAnim
                   }]} 
                 />
@@ -248,10 +250,8 @@ export default function TabLayout() {
               {focused && (
                 <Animated.View 
                   style={[styles.activeIndicator, {
-                    width: Animated.multiply(indicatorAnim, screenDimensions.isSmallDevice ? 10 : 15).interpolate({
-                      inputRange: [0, 15],
-                      outputRange: [screenDimensions.isSmallDevice ? 20 : 30, screenDimensions.isSmallDevice ? 30 : 45]
-                    }),
+                    width: screenDimensions.isSmallDevice ? 20 : 30,
+                    transform: [{ scaleX: indicatorScale }],
                     opacity: glowAnim
                   }]} 
                 />
@@ -274,10 +274,8 @@ export default function TabLayout() {
               {focused && (
                 <Animated.View 
                   style={[styles.activeIndicator, {
-                    width: Animated.multiply(indicatorAnim, screenDimensions.isSmallDevice ? 10 : 15).interpolate({
-                      inputRange: [0, 15],
-                      outputRange: [screenDimensions.isSmallDevice ? 20 : 30, screenDimensions.isSmallDevice ? 30 : 45]
-                    }),
+                    width: screenDimensions.isSmallDevice ? 20 : 30,
+                    transform: [{ scaleX: indicatorScale }],
                     opacity: glowAnim
                   }]} 
                 />
@@ -300,10 +298,8 @@ export default function TabLayout() {
               {focused && (
                 <Animated.View 
                   style={[styles.activeIndicator, {
-                    width: Animated.multiply(indicatorAnim, screenDimensions.isSmallDevice ? 10 : 15).interpolate({
-                      inputRange: [0, 15],
-                      outputRange: [screenDimensions.isSmallDevice ? 20 : 30, screenDimensions.isSmallDevice ? 30 : 45]
-                    }),
+                    width: screenDimensions.isSmallDevice ? 20 : 30,
+                    transform: [{ scaleX: indicatorScale }],
                     opacity: glowAnim
                   }]} 
                 />

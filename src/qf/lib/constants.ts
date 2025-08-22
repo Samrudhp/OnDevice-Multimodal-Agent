@@ -76,9 +76,9 @@ export const ANIMATION = {
 
 // API Timeouts
 export const TIMEOUTS = {
-  REQUEST: 30000, // 30 seconds
-  UPLOAD: 60000,  // 60 seconds
-  WEBSOCKET: 5000, // 5 seconds
+  REQUEST: 60000, // 60 seconds
+  UPLOAD: 120000,  // 2 minutes
+  WEBSOCKET: 10000, // 10 seconds
 } as const;
 
 export type RiskLevel = typeof RISK_LEVELS[keyof typeof RISK_LEVELS];

@@ -1,5 +1,6 @@
 import { Platform } from 'react-native';
-import { API_BASE_URL, API_CONNECTION_STATUS, WS_BASE_URL, TIMEOUTS } from './constants';
+import { API_CONNECTION_STATUS, WS_BASE_URL, TIMEOUTS } from './constants';
+import getApiBaseUrl from '../config/api';
 
 // Types matching the FastAPI server exactly
 export interface SensorData {
@@ -169,39 +170,49 @@ export class QuadFusionAPI {
   private connectionStatus: typeof API_CONNECTION_STATUS[keyof typeof API_CONNECTION_STATUS] = API_CONNECTION_STATUS.DISCONNECTED;
   private connectionListeners: ((status: typeof API_CONNECTION_STATUS[keyof typeof API_CONNECTION_STATUS]) => void)[] = [];
 
-  constructor(baseURL: string = API_BASE_URL) {
+  constructor(baseURL: string = getApiBaseUrl()) {
     this.baseURL = baseURL;
     this.checkConnection();
   }
   
   // Check API connection and update status
   private async checkConnection() {
-    try {
+    const maxAttempts = 3;
+    let attempt = 0;
+
+    const attemptFetch = async (): Promise<boolean> => {
+      attempt++;
       this.updateConnectionStatus(API_CONNECTION_STATUS.CONNECTING);
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), TIMEOUTS.REQUEST / 2);
-      
-      const response = await fetch(`${this.baseURL}/health`, { 
-        method: 'GET',
-        signal: controller.signal
-      });
-      
-      clearTimeout(timeoutId);
-      
-      if (response.ok) {
-        this.updateConnectionStatus(API_CONNECTION_STATUS.CONNECTED);
-      } else {
+      const timeoutId = setTimeout(() => controller.abort(), Math.max(5000, TIMEOUTS.REQUEST / 2));
+
+      try {
+        const response = await fetch(`${this.baseURL}/health`, { method: 'GET', signal: controller.signal });
+        clearTimeout(timeoutId);
+        if (response.ok) {
+          this.updateConnectionStatus(API_CONNECTION_STATUS.CONNECTED);
+          return true;
+        }
         this.updateConnectionStatus(API_CONNECTION_STATUS.ERROR);
+        return false;
+      } catch (err: any) {
+        clearTimeout(timeoutId);
+        console.error('API connection check failed:', err);
+        if (err && err.name === 'AbortError') {
+          console.warn('Connection check timed out');
+          this.updateConnectionStatus(API_CONNECTION_STATUS.DISCONNECTED);
+        } else {
+          this.updateConnectionStatus(API_CONNECTION_STATUS.ERROR);
+        }
+        return false;
       }
-    } catch (error: any) {
-      console.error('API connection check failed:', error);
-      
-      if (error.name === 'AbortError') {
-        console.warn('Connection check timed out');
-        this.updateConnectionStatus(API_CONNECTION_STATUS.DISCONNECTED);
-      } else {
-        this.updateConnectionStatus(API_CONNECTION_STATUS.ERROR);
-      }
+    };
+
+    while (attempt < maxAttempts) {
+      const ok = await attemptFetch();
+      if (ok) break;
+      const backoff = 500 * attempt;
+      await new Promise(res => setTimeout(res, backoff));
     }
   }
   

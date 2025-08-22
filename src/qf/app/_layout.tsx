@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { Stack } from 'expo-router';
+import { Stack, Slot } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useColorScheme, View, Animated, StyleSheet, Text } from 'react-native';
 import { useFrameworkReady } from '@/hooks/useFrameworkReady';
@@ -51,16 +51,8 @@ export default function RootLayout() {
           transform: [{ scale: pulseAnim }],
           shadowOpacity: glowAnim
         }]}>
-          <Stack 
-            screenOptions={{
-              headerShown: false,
-              contentStyle: { backgroundColor: 'transparent' },
-              animation: 'fade',
-              animationDuration: 200,
-            }}
-          >
-            <Stack.Screen name="+not-found" />
-          </Stack>
+          {/* Render child routes (tabs, index, etc.) */}
+          <Slot />
         </Animated.View>
       </ResponsiveContainer>
       

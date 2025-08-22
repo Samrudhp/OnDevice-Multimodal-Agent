@@ -12,13 +12,13 @@ export const usePulseAnimation = (intensity = 0.05, duration = ANIMATION.NORMAL 
           toValue: 1 + intensity,
           duration: duration,
           easing: Easing.inOut(Easing.sin),
-          useNativeDriver: true,
+          useNativeDriver: false,
         }),
         Animated.timing(pulseAnim, {
           toValue: 1,
           duration: duration,
           easing: Easing.inOut(Easing.sin),
-          useNativeDriver: true,
+          useNativeDriver: false,
         }),
       ])
     ).start();
@@ -35,17 +35,17 @@ export const useGlowAnimation = (minOpacity = 0.5, maxOpacity = 1, duration = AN
     Animated.loop(
       Animated.sequence([
         Animated.timing(glowAnim, {
-          toValue: maxOpacity,
-          duration: duration,
-          easing: Easing.inOut(Easing.sin),
-          useNativeDriver: true,
-        }),
+            toValue: maxOpacity,
+            duration: duration,
+            easing: Easing.inOut(Easing.sin),
+            useNativeDriver: false,
+          }),
         Animated.timing(glowAnim, {
-          toValue: minOpacity,
-          duration: duration,
-          easing: Easing.inOut(Easing.sin),
-          useNativeDriver: true,
-        }),
+            toValue: minOpacity,
+            duration: duration,
+            easing: Easing.inOut(Easing.sin),
+            useNativeDriver: false,
+          }),
       ])
     ).start();
   };
@@ -62,7 +62,7 @@ export const useFadeInAnimation = (duration = ANIMATION.NORMAL) => {
       toValue: 1,
       duration: duration,
       easing: Easing.out(Easing.cubic),
-      useNativeDriver: true,
+      useNativeDriver: false,
     }).start();
   };
 
@@ -78,7 +78,7 @@ export const useSlideUpAnimation = (distance = 50, duration = ANIMATION.NORMAL) 
       toValue: 0,
       duration: duration,
       easing: Easing.out(Easing.back(1.5)),
-      useNativeDriver: true,
+      useNativeDriver: false,
     }).start();
   };
 
@@ -94,7 +94,7 @@ export const useScaleAnimation = (startScale = 0.95, endScale = 1, duration = AN
       toValue: endScale,
       duration: duration,
       easing: Easing.out(Easing.back(1.5)),
-      useNativeDriver: true,
+      useNativeDriver: false,
     }).start();
   };
 
@@ -110,7 +110,7 @@ export const useButtonPressAnimation = () => {
       toValue: 0.95,
       duration: ANIMATION.FAST,
       easing: Easing.inOut(Easing.quad),
-      useNativeDriver: true,
+      useNativeDriver: false,
     }).start();
   };
 
@@ -119,7 +119,7 @@ export const useButtonPressAnimation = () => {
       toValue: 1,
       duration: ANIMATION.FAST,
       easing: Easing.inOut(Easing.quad),
-      useNativeDriver: true,
+      useNativeDriver: false,
     }).start();
   };
 
@@ -136,7 +136,7 @@ export const useRotateAnimation = (duration = 1500) => {
         toValue: 1,
         duration: duration,
         easing: Easing.linear,
-        useNativeDriver: true,
+        useNativeDriver: false,
       })
     ).start();
   };

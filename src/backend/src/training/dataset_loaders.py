@@ -36,6 +36,9 @@ warnings.filterwarnings('ignore')
 
 logging.basicConfig(level=logging.INFO)
 
+# Default training constants
+BATCH_SIZE = 32
+
 class BaseDatasetLoader(ABC):
     def __init__(self, dataset_name: str, data_path: str, config: Dict[str, Any] = None):
         self.dataset_name = dataset_name
@@ -75,7 +78,7 @@ class BaseDatasetLoader(ABC):
 
     def validate_data(self, data: Any) -> bool:
         if data is None or (isinstance(data, (list, np.ndarray)) and len(data) == 0):
-            raise ValueValue("Invalid data: empty or None")
+            raise ValueError("Invalid data: empty or None")
         if check_nan(data):
             data = clean_data(data)
         if self.config.get('validate_shape', False):

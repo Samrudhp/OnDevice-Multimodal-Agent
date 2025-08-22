@@ -8,8 +8,14 @@ import numpy as np
 from typing import Dict, Any, List, Optional, Tuple
 import cv2
 from PIL import Image
-import torch
-import torchvision.transforms as transforms
+import os
+try:
+    import torch
+    import torchvision.transforms as transforms
+    _TORCH_AVAILABLE = True
+except Exception:
+    transforms = None
+    _TORCH_AVAILABLE = False
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.preprocessing import StandardScaler
 import joblib
@@ -48,12 +54,15 @@ class VisualAgent(BaseAgent):
         self.enrolled_scene_embeddings = []
         self.user_id = None
         
-        # Image preprocessing
-        self.image_transform = transforms.Compose([
-            transforms.Resize((self.image_size, self.image_size)),
-            transforms.ToTensor(),
-            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-        ])
+        # Image preprocessing (only if torchvision available)
+        if _TORCH_AVAILABLE and transforms is not None:
+            self.image_transform = transforms.Compose([
+                transforms.Resize((self.image_size, self.image_size)),
+                transforms.ToTensor(),
+                transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+            ])
+        else:
+            self.image_transform = None
         
         # Analysis buffers
         self.recent_similarities = []
@@ -375,11 +384,164 @@ class VisualAgent(BaseAgent):
     def get_status(self) -> Dict[str, Any]:
         """Get current agent status and metrics."""
         return {
-            'agent_name': self.name,
+            'agent_name': self.agent_name,
             'is_enrolled': len(self.enrolled_face_embeddings) > 0,
             'num_face_embeddings': len(self.enrolled_face_embeddings),
             'num_scene_embeddings': len(self.enrolled_scene_embeddings),
-            'processing_times': self.processing_times[-100:],
+            'processing_times': getattr(self, 'inference_times', [])[-100:],
             'face_detection_history': self.face_detection_history[-100:],
-            'last_analysis': self.last_analysis_time
+            'last_analysis': getattr(self, 'last_update_time', None)
         }
+
+    # -------------------------
+    # Implement abstract methods
+    # -------------------------
+    def train_initial(self, training_data: List[np.ndarray]) -> bool:
+        """Initial training: store embeddings from provided training data."""
+        try:
+            self.enrolled_face_embeddings = []
+            self.enrolled_scene_embeddings = []
+
+            for sample in training_data:
+                # Expecting combined vector: [face(emb_dim), scene(emb_dim), metadata(7)]
+                if sample is None or len(sample) < (2 * self.embedding_dim):
+                    continue
+                face = sample[:self.embedding_dim]
+                scene = sample[self.embedding_dim:2*self.embedding_dim]
+                self.enrolled_face_embeddings.append(face / (np.linalg.norm(face) + 1e-8))
+                self.enrolled_scene_embeddings.append(scene / (np.linalg.norm(scene) + 1e-8))
+
+            if len(self.enrolled_face_embeddings) == 0 and len(self.enrolled_scene_embeddings) == 0:
+                self.is_trained = False
+                return False
+
+            self.is_trained = True
+            return True
+        except Exception as e:
+            print(f"VisualAgent.train_initial error: {e}")
+            return False
+
+    def predict(self, features: np.ndarray) -> AgentResult:
+        """Make a prediction from a feature vector and return an AgentResult."""
+        start = time.time()
+        try:
+            if features is None or len(features) < (2 * self.embedding_dim):
+                # Cannot predict without full features
+                anomaly_score = 0.5
+                risk = self.get_risk_level_from_score(anomaly_score)
+                return AgentResult(
+                    agent_name=self.agent_name,
+                    anomaly_score=anomaly_score,
+                    risk_level=risk,
+                    confidence=0.5,
+                    features_used=['visual_features'],
+                    processing_time_ms=0.0,
+                    metadata={}
+                )
+
+            face = features[:self.embedding_dim]
+            scene = features[self.embedding_dim:2*self.embedding_dim]
+
+            # Normalize
+            face = face / (np.linalg.norm(face) + 1e-8)
+            scene = scene / (np.linalg.norm(scene) + 1e-8)
+
+            # Compute similarity if enrolled embeddings exist
+            face_sim = 0.0
+            scene_sim = 0.0
+
+            if len(self.enrolled_face_embeddings) > 0:
+                sims = cosine_similarity([face], np.vstack(self.enrolled_face_embeddings))
+                face_sim = float(np.max(sims))
+
+            if len(self.enrolled_scene_embeddings) > 0:
+                sims2 = cosine_similarity([scene], np.vstack(self.enrolled_scene_embeddings))
+                scene_sim = float(np.max(sims2))
+
+            # Weighted combination
+            combined_sim = 0.6 * face_sim + 0.4 * scene_sim
+            anomaly_score = float(max(0.0, min(1.0, 1.0 - combined_sim)))
+            risk = self.get_risk_level_from_score(anomaly_score)
+            confidence = float(combined_sim)
+
+            processing_time = (time.time() - start) * 1000.0
+
+            return AgentResult(
+                agent_name=self.agent_name,
+                anomaly_score=anomaly_score,
+                risk_level=risk,
+                confidence=confidence,
+                features_used=['face_embedding', 'scene_embedding'],
+                processing_time_ms=processing_time,
+                metadata={'face_similarity': face_sim, 'scene_similarity': scene_sim}
+            )
+
+        except Exception as e:
+            print(f"VisualAgent.predict error: {e}")
+            processing_time = (time.time() - start) * 1000.0
+            return AgentResult(
+                agent_name=self.agent_name,
+                anomaly_score=1.0,
+                risk_level=self.get_risk_level_from_score(1.0),
+                confidence=0.0,
+                features_used=[],
+                processing_time_ms=processing_time,
+                metadata={'error': str(e)}
+            )
+
+    def incremental_update(self, new_data: List[np.ndarray], is_anomaly: List[bool] = None) -> bool:
+        """Update enrolled embeddings / baseline with new data."""
+        try:
+            for sample in new_data:
+                if sample is None or len(sample) < (2 * self.embedding_dim):
+                    continue
+                face = sample[:self.embedding_dim]
+                scene = sample[self.embedding_dim:2*self.embedding_dim]
+                self.enrolled_face_embeddings.append(face / (np.linalg.norm(face) + 1e-8))
+                self.enrolled_scene_embeddings.append(scene / (np.linalg.norm(scene) + 1e-8))
+
+            # Keep only recent embeddings up to a cap
+            max_emb = self.config.get('max_embeds', 200)
+            if len(self.enrolled_face_embeddings) > max_emb:
+                self.enrolled_face_embeddings = self.enrolled_face_embeddings[-max_emb:]
+            if len(self.enrolled_scene_embeddings) > max_emb:
+                self.enrolled_scene_embeddings = self.enrolled_scene_embeddings[-max_emb:]
+
+            self.is_trained = True if (len(self.enrolled_face_embeddings) + len(self.enrolled_scene_embeddings)) > 0 else False
+            return True
+        except Exception as e:
+            print(f"VisualAgent.incremental_update error: {e}")
+            return False
+
+    def save_model(self, filepath: str) -> bool:
+        """Save embeddings and config to disk using joblib."""
+        try:
+            data = {
+                'enrolled_face_embeddings': np.vstack(self.enrolled_face_embeddings) if len(self.enrolled_face_embeddings) > 0 else np.empty((0, self.embedding_dim)),
+                'enrolled_scene_embeddings': np.vstack(self.enrolled_scene_embeddings) if len(self.enrolled_scene_embeddings) > 0 else np.empty((0, self.embedding_dim)),
+                'config': self.config
+            }
+            joblib.dump(data, filepath)
+            return True
+        except Exception as e:
+            print(f"VisualAgent.save_model error: {e}")
+            return False
+
+    def load_model(self, filepath: str) -> bool:
+        """Load embeddings and config from disk using joblib."""
+        try:
+            if not filepath or not os.path.exists(filepath):
+                return False
+            data = joblib.load(filepath)
+            face = data.get('enrolled_face_embeddings')
+            scene = data.get('enrolled_scene_embeddings')
+            if face is not None and face.size > 0:
+                self.enrolled_face_embeddings = [row / (np.linalg.norm(row) + 1e-8) for row in face]
+            if scene is not None and scene.size > 0:
+                self.enrolled_scene_embeddings = [row / (np.linalg.norm(row) + 1e-8) for row in scene]
+            self.config.update(data.get('config', {}))
+            self.is_trained = True if (len(self.enrolled_face_embeddings) + len(self.enrolled_scene_embeddings)) > 0 else False
+            return True
+        except Exception as e:
+            print(f"VisualAgent.load_model error: {e}")
+            return False
