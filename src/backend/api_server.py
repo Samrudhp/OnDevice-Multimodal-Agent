@@ -88,7 +88,7 @@ class TouchEvent(BaseModel):
 class KeystrokeEvent(BaseModel):
     timestamp: float
     key_code: int
-    action: str = Field(..., regex="^(down|up)$")
+    action: str = Field(..., pattern="^(down|up)$")
     pressure: float = 0.0
 
 class MotionData(BaseModel):

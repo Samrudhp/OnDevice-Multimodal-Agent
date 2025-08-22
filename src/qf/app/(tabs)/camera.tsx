@@ -106,27 +106,28 @@ export default function CameraTab() {
       </Animated.View>
 
       <View style={styles.cameraContainer}>
-        <CameraView style={styles.camera} facing={facing} ref={cameraRef}>
-          <View style={styles.overlay}>
-            <View style={styles.faceFrame} />
-            
-            {analysisResult && (
-              <View style={[
-                styles.resultBadge,
-                { backgroundColor: analysisResult.biometricMatch ? '#10B981' : '#EF4444' }
-              ]}>
-                {analysisResult.biometricMatch ? (
-                  <CheckCircle size={16} color="#FFFFFF" />
-                ) : (
-                  <AlertCircle size={16} color="#FFFFFF" />
-                )}
-                <Text style={styles.resultText}>
-                  {analysisResult.biometricMatch ? 'Match' : 'No Match'} - {analysisResult.confidence.toFixed(1)}%
-                </Text>
-              </View>
-            )}
-          </View>
-        </CameraView>
+        <View style={styles.cameraWrapper}>
+          <CameraView style={styles.camera} facing={facing} ref={cameraRef}>
+            <View style={[styles.overlay, StyleSheet.absoluteFill]}>
+              <Animated.View style={[styles.faceFrame, { transform: [{ scale: pulseAnim }] }]} />
+              {analysisResult && (
+                <View style={[
+                  styles.resultBadge,
+                  { backgroundColor: analysisResult.biometricMatch ? '#10B981' : '#EF4444' }
+                ]}>
+                  {analysisResult.biometricMatch ? (
+                    <CheckCircle size={16} color="#FFFFFF" />
+                  ) : (
+                    <AlertCircle size={16} color="#FFFFFF" />
+                  )}
+                  <Text style={styles.resultText}>
+                    {analysisResult.biometricMatch ? 'Match' : 'No Match'} - {analysisResult.confidence.toFixed(1)}%
+                  </Text>
+                </View>
+              )}
+            </View>
+          </CameraView>
+        </View>
       </View>
 
       <View style={styles.controls}>
@@ -281,8 +282,11 @@ const styles = StyleSheet.create({
     flex: 1,
     marginHorizontal: SPACING.MD,
     marginBottom: SPACING.MD,
-    borderRadius: BORDER_RADIUS.XL,
+  },
+  cameraWrapper: {
+    flex: 1,
     overflow: 'hidden',
+    borderRadius: BORDER_RADIUS.XL,
     borderWidth: 1,
     borderColor: COLORS.GLOW,
     shadowColor: COLORS.GLOW,

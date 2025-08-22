@@ -350,9 +350,11 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.LG,
   },
   securityMetrics: {
+    flex: 1,
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginBottom: SPACING.MD,
+    transform: [{ scale: 1 }]
   },
   metricCard: {
     flex: 1,
@@ -363,6 +365,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 1,
     borderColor: COLORS.ACCENT,
+    transform: [{ scale: 1 }]
   },
   metricValue: {
     fontSize: 20,
@@ -447,6 +450,7 @@ const styles = StyleSheet.create({
     marginLeft: SPACING.XS,
   },
   threatMap: {
+    flex: 1,
     height: 150,
     backgroundColor: COLORS.BACKGROUND,
     borderRadius: BORDER_RADIUS.SM,
@@ -454,26 +458,29 @@ const styles = StyleSheet.create({
     position: 'relative',
     borderWidth: 1,
     borderColor: COLORS.GRAY_700,
+    transform: [{ scale: 1 }],
   },
   threatPoint: {
     position: 'absolute',
-    width: 12,
     height: 12,
+    aspectRatio: 1,
     borderRadius: 6,
     backgroundColor: COLORS.WARNING,
   },
   threatStats: {
+    flex: 1,
     flexDirection: 'row',
     justifyContent: 'space-around',
     paddingTop: SPACING.SM,
+    transform: [{ scale: 1 }],
   },
   threatStatItem: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   threatIndicator: {
-    width: 8,
     height: 8,
+    aspectRatio: 1,
     borderRadius: 4,
     marginRight: SPACING.XS,
   },
@@ -503,13 +510,14 @@ const styles = StyleSheet.create({
   },
   headerTop: {
     alignItems: 'center',
-    width: '100%',
+    flex: 1,
     position: 'relative',
     paddingVertical: SPACING.LG,
     borderWidth: 1,
     borderColor: COLORS.GLOW,
     borderRadius: BORDER_RADIUS.LG,
     paddingHorizontal: SPACING.MD,
+    transform: [{ scale: 1 }]
   },
   headerIcon: {
     shadowColor: COLORS.ACCENT,
@@ -535,7 +543,7 @@ const styles = StyleSheet.create({
     height: 2,
     backgroundColor: COLORS.GLOW,
     marginTop: SPACING.MD,
-    width: '80%',
+    marginHorizontal: '10%',
     shadowColor: COLORS.GLOW,
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.8,
@@ -543,37 +551,45 @@ const styles = StyleSheet.create({
   },
   cornerAccent: {
     position: 'absolute',
-    width: 20,
-    height: 20,
-    borderColor: COLORS.ACCENT,
     top: 0,
     left: 0,
     borderTopWidth: 2,
     borderLeftWidth: 2,
+    borderColor: COLORS.ACCENT,
+    transform: [{ translateX: 0 }, { translateY: 0 }, { scale: 1 }],
   },
   cornerAccentTopRight: {
-    left: undefined,
+    height: 20,
+    aspectRatio: 1,
+    position: 'absolute',
+    top: 0,
     right: 0,
     borderTopWidth: 2,
     borderRightWidth: 2,
-    borderLeftWidth: 0,
+    borderColor: COLORS.ACCENT,
+    transform: [{ translateX: 0 }, { translateY: 0 }, { scale: 1 }]
   },
   cornerAccentBottomLeft: {
-    top: undefined,
+    height: 20,
+    aspectRatio: 1,
+    position: 'absolute',
     bottom: 0,
+    left: 0,
     borderBottomWidth: 2,
     borderLeftWidth: 2,
-    borderTopWidth: 0,
+    borderColor: COLORS.ACCENT,
+    transform: [{ translateX: 0 }, { translateY: 0 }, { scale: 1 }]
   },
   cornerAccentBottomRight: {
-    top: undefined,
-    left: undefined,
+    height: 20,
+    aspectRatio: 1,
+    position: 'absolute',
     bottom: 0,
     right: 0,
     borderBottomWidth: 2,
     borderRightWidth: 2,
-    borderTopWidth: 0,
-    borderLeftWidth: 0,
+    borderColor: COLORS.ACCENT,
+    transform: [{ translateX: 0 }, { translateY: 0 }, { scale: 1 }]
   },
   statusCard: {
     backgroundColor: COLORS.CARD,
