@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Animated } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Animated, GestureResponderEvent } from 'react-native';
 import * as Icons from 'lucide-react-native';
-import { SensorManager } from '../lib/sensor-manager';
+import { SensorManager, sensorManager } from '../lib/sensor-manager';
+import recordShortAudio from '../lib/audio-recorder';
 import { QuadFusionAPI } from '../lib/api';
 import ProcessingResultDisplay from '../components/ProcessingResultDisplay';
 import StatusIndicator from '../components/StatusIndicator';
@@ -186,6 +187,15 @@ export default function LiveMonitoring({
     try {
       // Start motion sensors
       await sensorManager.startMotionSensors();
+
+      // Start a short audio recording to capture a sample when monitoring begins
+      try {
+        const audioSample = await recordShortAudio(1500);
+        sensorManager.setAudioData(audioSample.base64, audioSample.sampleRate, audioSample.duration);
+        console.log('Captured short audio sample for monitoring');
+      } catch (e) {
+        console.warn('Audio capture failed at monitor start:', e);
+      }
       
       setIsMonitoring(true);
       setMonitoringDuration(0);
@@ -333,8 +343,16 @@ export default function LiveMonitoring({
 
   const status = getMonitoringStatus();
 
+  const onTouchResponder = (e: GestureResponderEvent) => {
+    try {
+      sensorManager.addTouchEvent(e.nativeEvent as any);
+    } catch (ex) {
+      // ignore
+    }
+  };
+
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+    <ScrollView style={styles.container} showsVerticalScrollIndicator={false} onStartShouldSetResponder={() => true} onResponderGrant={onTouchResponder}>
       {/* Status Display */}
       {/* Status Display */}
       <TouchableOpacity 

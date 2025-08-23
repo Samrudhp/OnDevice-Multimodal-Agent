@@ -7,6 +7,7 @@ export interface SensorData {
   touch_events: TouchEvent[];
   keystroke_events: KeystrokeEvent[];
   motion_data?: MotionData;
+  motion_sequence?: MotionData[];
   audio_data?: string;
   sample_rate?: number;
   audio_duration?: number;
