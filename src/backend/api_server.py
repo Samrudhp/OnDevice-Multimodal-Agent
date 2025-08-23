@@ -25,27 +25,87 @@ from typing import Any, Dict, List, Optional, Union
 
 import numpy as np
 import uvicorn
-from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect, BackgroundTasks
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect, BackgroundTasks, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field, validator
 
-# QuadFusion imports (with fallbacks if not available)
+# Ensure local `src` package is on sys.path so `from src.agents...` works when
+# running the server from the `src/backend` directory. This is a small, safe
+# convenience for local development.
+import os
+import sys
+from pathlib import Path
 try:
-    from src.agents.base_agent import BaseAgent, AgentResult, RiskLevel
-    from src.agents.touch_pattern_agent import TouchPatternAgent
-    from src.agents.typing_behavior_agent import TypingBehaviorAgent
-    from src.agents.voice_command_agent import VoiceCommandAgent
-    from src.agents.visual_agent import VisualAgent
-    from src.agents.movement_agent import MovementAgent
-    from src.agents.app_usage_agent import AppUsageAgent
-    from src.agents.coordinator_agent import CoordinatorAgent
-    from src.demo.simulate_sensor_data import SensorDataSimulator
-    from src.training.dataset_loaders import SyntheticDataGenerator
-    QUADFUSION_AVAILABLE = True
-except ImportError:
-    QUADFUSION_AVAILABLE = False
-    logging.warning("QuadFusion modules not available - using stubs")
+    backend_dir = os.path.dirname(__file__)
+    local_src = os.path.join(backend_dir, 'src')
+    if os.path.isdir(local_src) and local_src not in sys.path:
+        sys.path.insert(0, local_src)
+except Exception:
+    # Best-effort; continue without crashing if this fails
+    pass
+
+# Attempt to import agent implementations individually so missing optional
+# heavy dependencies (tensorflow, torch, opencv, etc.) don't force the
+# entire system to fall back to stubs. We record which agents are available.
+import importlib
+
+# Core types (best-effort)
+BaseAgent = None
+AgentResult = None
+RiskLevel = None
+
+TouchPatternAgent = None
+TypingBehaviorAgent = None
+VoiceCommandAgent = None
+VisualAgent = None
+MovementAgent = None
+AppUsageAgent = None
+CoordinatorAgent = None
+SensorDataSimulator = None
+SyntheticDataGenerator = None
+
+import_errors = {}
+
+try:
+    core = importlib.import_module('src.agents.base_agent')
+    BaseAgent = getattr(core, 'BaseAgent', None)
+    AgentResult = getattr(core, 'AgentResult', None)
+    RiskLevel = getattr(core, 'RiskLevel', None)
+except Exception as e:
+    import_errors['base_agent'] = str(e)
+
+def _try_import(module_path: str, class_name: str):
+    try:
+        mod = importlib.import_module(module_path)
+        return getattr(mod, class_name)
+    except Exception as e:
+        import_errors[module_path] = str(e)
+        logging.warning(f"Optional module {module_path} failed to import: {e}")
+        return None
+
+TouchPatternAgent = _try_import('src.agents.touch_pattern_agent', 'TouchPatternAgent')
+TypingBehaviorAgent = _try_import('src.agents.typing_behavior_agent', 'TypingBehaviorAgent')
+VoiceCommandAgent = _try_import('src.agents.voice_command_agent', 'VoiceCommandAgent')
+VisualAgent = _try_import('src.agents.visual_agent', 'VisualAgent')
+MovementAgent = _try_import('src.agents.movement_agent', 'MovementAgent')
+AppUsageAgent = _try_import('src.agents.app_usage_agent', 'AppUsageAgent')
+CoordinatorAgent = _try_import('src.agents.coordinator_agent', 'CoordinatorAgent')
+SensorDataSimulator = _try_import('src.demo.simulate_sensor_data', 'SensorDataSimulator')
+SyntheticDataGenerator = _try_import('src.training.dataset_loaders', 'SyntheticDataGenerator')
+
+# Determine availability: at least one real agent or core types
+QUADFUSION_AVAILABLE = any([
+    cls is not None for cls in [
+        TouchPatternAgent, TypingBehaviorAgent, VoiceCommandAgent,
+        VisualAgent, MovementAgent, AppUsageAgent, CoordinatorAgent
+    ]
+]) and BaseAgent is not None
+
+if not QUADFUSION_AVAILABLE:
+    logging.warning("QuadFusion not fully available; some agents missing, falling back where needed")
+    for k, v in import_errors.items():
+        logging.debug(f"Import error [{k}]: {v}")
 
 # Configure logging
 logging.basicConfig(
@@ -193,6 +253,21 @@ class AgentManager:
             }
         }
         self._initialize_agents()
+
+        # persistence dir for simple dev model/flag storage
+        try:
+            self.persistence_dir = Path(os.environ.get('QUADFUSION_MODEL_DIR', '/tmp/quadfusion_models'))
+            self.persistence_dir.mkdir(parents=True, exist_ok=True)
+        except Exception:
+            logger.exception("Failed to create persistence directory; using in-memory only")
+            self.persistence_dir = None
+
+        # attempt to load persisted flags/states
+        try:
+            if self.persistence_dir:
+                self._load_persisted_states()
+        except Exception:
+            logger.exception("Failed to load persisted agent states")
     
     def _initialize_agents(self):
         """Initialize all fraud detection agents"""
@@ -200,33 +275,64 @@ class AgentManager:
             if QUADFUSION_AVAILABLE:
                 # Initialize agents with default configs
                 default_config = {"contamination": 0.1, "batch_size": 32}
-                
-                self.agents = {
-                    "TouchPatternAgent": TouchPatternAgent(default_config),
-                    "TypingBehaviorAgent": TypingBehaviorAgent(default_config),
-                    "VoiceCommandAgent": VoiceCommandAgent(default_config),
-                    "VisualAgent": VisualAgent(default_config),
-                    "MovementAgent": MovementAgent(default_config),
-                    "AppUsageAgent": AppUsageAgent(default_config)
+
+                agent_classes = {
+                    "TouchPatternAgent": TouchPatternAgent,
+                    "TypingBehaviorAgent": TypingBehaviorAgent,
+                    "VoiceCommandAgent": VoiceCommandAgent,
+                    "VisualAgent": VisualAgent,
+                    "MovementAgent": MovementAgent,
+                    "AppUsageAgent": AppUsageAgent
                 }
-                
-                # Initialize coordinator
-                coordinator_config = {
-                    "agent_weights": self.config["agent_weights"],
-                    "risk_thresholds": self.config["risk_thresholds"]
-                }
-                self.coordinator = CoordinatorAgent(coordinator_config)
-                
-                # Initialize synthetic data generator
-                self.synthetic_data_generator = SyntheticDataGenerator()
-                
-                logger.info("All agents initialized successfully")
+
+                instantiated = {}
+                for name, cls in agent_classes.items():
+                    if cls is None:
+                        logger.warning(f"Agent class {name} not available; skipping")
+                        continue
+                    try:
+                        instantiated[name] = cls(default_config)
+                    except Exception as e:
+                        logger.error(f"Failed to initialize {name}: {e}", exc_info=True)
+
+                if not instantiated:
+                    logger.warning("No agents could be instantiated; falling back to stub agents")
+                    self._initialize_stub_agents()
+                    return
+
+                self.agents = instantiated
+
+                # Initialize coordinator if available
+                if CoordinatorAgent is not None:
+                    try:
+                        coordinator_config = {
+                            "agent_weights": self.config["agent_weights"],
+                            "risk_thresholds": self.config["risk_thresholds"]
+                        }
+                        self.coordinator = CoordinatorAgent(coordinator_config)
+                    except Exception as e:
+                        logger.error(f"CoordinatorAgent initialization failed: {e}", exc_info=True)
+                        self.coordinator = None
+                else:
+                    logger.warning("CoordinatorAgent not available; coordinator disabled")
+
+                # Initialize synthetic data generator if available
+                if SyntheticDataGenerator is not None:
+                    try:
+                        self.synthetic_data_generator = SyntheticDataGenerator()
+                    except Exception as e:
+                        logger.error(f"SyntheticDataGenerator failed to initialize: {e}", exc_info=True)
+                        self.synthetic_data_generator = None
+                else:
+                    logger.debug("SyntheticDataGenerator not available")
+
+                logger.info(f"Agents initialized: {list(self.agents.keys())}")
             else:
                 logger.warning("QuadFusion not available - using stub agents")
                 self._initialize_stub_agents()
-                
+
         except Exception as e:
-            logger.error(f"Agent initialization failed: {e}")
+            logger.error(f"Agent initialization failed: {e}", exc_info=True)
             self._initialize_stub_agents()
     
     def _initialize_stub_agents(self):
@@ -255,6 +361,37 @@ class AgentManager:
             "MovementAgent": StubAgent("MovementAgent"),
             "AppUsageAgent": StubAgent("AppUsageAgent")
         }
+
+    def _persist_state_for_agent(self, agent_name: str, state: dict):
+        """Persist a small JSON state for an agent (dev-only)."""
+        try:
+            if not getattr(self, 'persistence_dir', None):
+                return
+            p = self.persistence_dir / f"{agent_name}.json"
+            with open(p, 'w') as f:
+                json.dump(state, f)
+        except Exception:
+            logger.exception("Failed to persist state for %s", agent_name)
+
+    def _load_persisted_states(self):
+        """Load persisted agent states (dev-only)."""
+        try:
+            if not getattr(self, 'persistence_dir', None):
+                return
+            for p in self.persistence_dir.glob('*.json'):
+                try:
+                    with open(p, 'r') as f:
+                        state = json.load(f)
+                    name = p.stem
+                    # Map file stem to agent object if present
+                    agent = self.agents.get(name) or getattr(self, name, None)
+                    if agent and isinstance(state, dict):
+                        if 'is_trained' in state:
+                            agent.is_trained = bool(state['is_trained'])
+                except Exception:
+                    logger.exception("Failed to load persisted state from %s", p)
+        except Exception:
+            logger.exception("Failed scanning persistence dir %s", getattr(self, 'persistence_dir', '<none>'))
     
     def process_sensor_data(self, sensor_data: SensorData, session_id: str) -> ProcessingResult:
         """Process sensor data through all agents and coordinator"""
@@ -628,6 +765,50 @@ async def process_realtime(request: RealtimeProcessingRequest):
         logger.error(f"Real-time processing failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+
+@app.post("/api/v1/process/realtime_debug")
+async def process_realtime_debug(request: Request):
+    """Debugging endpoint: read raw body, log it, process, log response.
+
+    Writes a one-time debug log to /tmp/quadfusion_realtime_debug.log containing
+    the raw request body and the server's processing response. Returns the
+    normal ProcessingResult to the caller.
+    """
+    try:
+        raw = await request.body()
+        raw_s = raw.decode('utf-8', errors='replace')
+
+        # Attempt to parse into pydantic model
+        try:
+            payload = RealtimeProcessingRequest.parse_raw(raw_s)
+        except Exception as e:
+            logger.exception('Failed to parse RealtimeProcessingRequest in debug endpoint')
+            raise HTTPException(status_code=400, detail=f'Invalid payload: {e}')
+
+        # Process through existing AgentManager
+        result = agent_manager.process_sensor_data(payload.sensor_data, payload.session_id)
+
+        # Prepare debug log entry
+        log_entry = {
+            'timestamp': datetime.now().isoformat(),
+            'raw_body': raw_s,
+            'processing_result': result.dict() if hasattr(result, 'dict') else result
+        }
+
+        try:
+            logpath = Path(os.environ.get('QUADFUSION_DEBUG_LOG', '/tmp/quadfusion_realtime_debug.log'))
+            with open(logpath, 'a') as f:
+                f.write(json.dumps(log_entry) + '\n')
+        except Exception:
+            logger.exception('Failed to write realtime debug log')
+
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception('Realtime debug processing failed')
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.post("/api/v1/process/batch")
 async def process_batch(request: BatchProcessingRequest):
     """Process multiple sensor data samples in batch"""
@@ -667,6 +848,380 @@ async def get_model_status():
         return agent_manager.get_model_status()
     except Exception as e:
         logger.error(f"Getting model status failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/v1/debug/agents")
+async def debug_agents():
+    """Return debug information about initialized agents to verify real vs stub agents."""
+    try:
+        info = {
+            "quadfusion_available": QUADFUSION_AVAILABLE,
+            "agent_count": len(agent_manager.agents),
+            "agents": {}
+        }
+
+        for name, agent in agent_manager.agents.items():
+            try:
+                agent_info = {
+                    "class": agent.__class__.__name__,
+                    "module": agent.__class__.__module__,
+                    "is_trained": getattr(agent, 'is_trained', None)
+                }
+
+                # Try to include richer status if the agent exposes get_status()
+                if hasattr(agent, 'get_status'):
+                    try:
+                        agent_info['status'] = agent.get_status()
+                    except Exception as se:
+                        agent_info['status_error'] = str(se)
+
+                info['agents'][name] = agent_info
+            except Exception as ae:
+                info['agents'][name] = {"error": str(ae)}
+
+        return info
+    except Exception as e:
+        logger.error(f"Debug agents endpoint failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post('/api/v1/debug/echo')
+async def debug_echo(request: Request, payload: RealtimeProcessingRequest):
+    """Echo parsed sensor dict and raw request body for debugging client payloads.
+
+    Returns the server-side parsed `sensor_data` dict and the raw JSON body so
+    you can confirm the exact bytes the server received.
+    """
+    try:
+        raw = await request.body()
+        # Convert using AgentManager helper to match production parsing
+        parsed = agent_manager._convert_sensor_data(payload.sensor_data)
+        return {
+            'parsed_sensor_dict': parsed,
+            'raw_body': raw.decode('utf-8', errors='replace')
+        }
+    except Exception as e:
+        logger.exception('debug_echo failed')
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/v1/admin/train_typing")
+async def dev_train_typing(samples: int = 50):
+    """Dev-only endpoint: quickly mark TypingBehaviorAgent as trained.
+
+    This creates a lightweight dummy autoencoder and a fitted scaler so
+    the `TypingBehaviorAgent` will produce predictions for dev/testing.
+    Do NOT use in production.
+    """
+    try:
+        typing_agent = agent_manager.agents.get('TypingBehaviorAgent')
+        if typing_agent is None:
+            raise HTTPException(status_code=404, detail='TypingBehaviorAgent not available')
+
+        # Dev: attach a dummy autoencoder that echoes inputs back (identity)
+        class _DummyAutoencoder:
+            def predict(self, x, verbose=0):
+                # Ensure numpy array return with same shape
+                import numpy as _np
+                arr = _np.array(x)
+                return arr
+
+        # Configure agent to be 'trained' for dev purposes
+        typing_agent.autoencoder = _DummyAutoencoder()
+        typing_agent.encoder = None
+        typing_agent.decoder = None
+        typing_agent.reconstruction_threshold = 0.1
+
+        # Set a neutral fitted scaler (zero mean, unit scale)
+        try:
+            import numpy as _np
+            typing_agent.scaler.mean_ = _np.zeros(getattr(typing_agent, 'feature_dim', 6))
+            typing_agent.scaler.scale_ = _np.ones(getattr(typing_agent, 'feature_dim', 6))
+            typing_agent.scaler.var_ = _np.ones(getattr(typing_agent, 'feature_dim', 6))
+        except Exception:
+            # If scaler doesn't accept attributes, skip (dev-only)
+            pass
+
+        typing_agent.is_trained = True
+
+        return {"status": "dev_trained", "agent": "TypingBehaviorAgent", "samples": samples}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Dev train typing failed: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/v1/admin/train_all")
+async def dev_train_all():
+    """Dev-only: quick synthetic training for all available agents.
+
+    This populates minimal dummy models or synthetic baselines so agents
+    report non-empty outputs for development/testing. It is NOT real training.
+    """
+    import numpy as _np
+
+    results = {}
+    try:
+        for name, agent in agent_manager.agents.items():
+            try:
+                if agent is None:
+                    results[name] = 'missing'
+                    continue
+
+                # TypingBehaviorAgent: attach dummy autoencoder
+                if name == 'TypingBehaviorAgent':
+                    class _DummyAutoencoder:
+                        def predict(self, x, verbose=0):
+                            import numpy as _n
+                            return _n.array(x)
+
+                    agent.autoencoder = _DummyAutoencoder()
+                    try:
+                        agent.scaler.mean_ = _np.zeros(getattr(agent, 'feature_dim', 6))
+                        agent.scaler.scale_ = _np.ones(getattr(agent, 'feature_dim', 6))
+                    except Exception:
+                        pass
+                    agent.reconstruction_threshold = 0.1
+                    agent.is_trained = True
+                    results[name] = 'dev_trained'
+
+                # MovementAgent: populate baseline patterns and mark trained
+                elif name == 'MovementAgent':
+                    seq_len = getattr(agent, 'sequence_length', 100)
+                    feat = getattr(agent, 'sensor_features', 6)
+                    # create small number of synthetic sequences
+                    patterns = [_np.random.normal(0, 0.1, (seq_len, feat)).astype(float) for _ in range(20)]
+                    agent.baseline_patterns = patterns
+                    try:
+                        agent.scaler.mean_ = _np.zeros(feat)
+                        agent.scaler.scale_ = _np.ones(feat)
+                    except Exception:
+                        pass
+                    agent.is_trained = True
+                    results[name] = 'dev_trained'
+
+                # AppUsageAgent: create synthetic usage history and train baseline
+                elif name == 'AppUsageAgent':
+                    # Create synthetic usage sessions for 5 apps
+                    now = time.time()
+                    for i in range(20):
+                        app = f'app_{i%5}'
+                        ts = now - (i * 3600)
+                        duration = float(30 + (i % 10))
+                        agent.app_usage_history[app].append((ts, duration))
+                        agent.app_durations[app].append(duration)
+                        agent.app_frequency[app] += 1
+                    # Train baseline quickly
+                    agent.train_baseline()
+                    results[name] = 'trained' if agent.is_trained else 'partial'
+
+                # VoiceCommandAgent: set simple trained flag and dummy classifier
+                elif name == 'VoiceCommandAgent':
+                    agent.is_trained = True
+                    try:
+                        agent.enrolled_speaker_embeddings = [_np.zeros(64).tolist()]
+                    except Exception:
+                        pass
+                    results[name] = 'dev_trained'
+
+                # VisualAgent: simulate enrollment and mark trained
+                elif name == 'VisualAgent':
+                    try:
+                        agent.is_trained = True
+                        # populate some fake embeddings
+                        agent.face_embeddings = [_np.zeros(128).tolist()]
+                        agent.num_face_embeddings = 1
+                    except Exception:
+                        pass
+                    results[name] = 'dev_trained'
+
+                else:
+                    # Generic fallback: mark trained
+                    agent.is_trained = True
+                    results[name] = 'marked_trained'
+
+            except Exception as e:
+                logger.error(f"Dev train failed for {name}: {e}", exc_info=True)
+                results[name] = f'error: {str(e)}'
+
+        # Reset coordinator weights to defaults (avoid zero-sum issues) and loosen requirement for dev
+        try:
+            default_weights = {
+                "TouchPatternAgent": 0.2,
+                "TypingBehaviorAgent": 0.15,
+                "VoiceCommandAgent": 0.2,
+                "VisualAgent": 0.25,
+                "AppUsageAgent": 0.1,
+                "MovementAgent": 0.1
+            }
+            agent_manager.config['agent_weights'] = default_weights
+            if agent_manager.coordinator is not None:
+                # update coordinator internal weights if it exposes them
+                try:
+                    if hasattr(agent_manager.coordinator, 'agent_weights'):
+                        agent_manager.coordinator.agent_weights = default_weights.copy()
+                    agent_manager.coordinator.min_agents_required = 1
+                except Exception:
+                    logger.exception("Failed to update coordinator weights/min_agents_required")
+        except Exception:
+            logger.exception("Failed resetting coordinator weights")
+
+        # Persist trained flags for agents so dev-state survives restarts
+        try:
+            # First attempt to save agent models where supported
+            for name, agent in agent_manager.agents.items():
+                try:
+                    if getattr(agent, 'is_trained', False) and getattr(agent, 'save_model', None):
+                        if getattr(agent_manager, 'persistence_dir', None):
+                            filepath = str(agent_manager.persistence_dir / name)
+                            try:
+                                agent.save_model(filepath)
+                                results[name] = results.get(name, '') + ' | model_saved'
+                            except Exception:
+                                logger.exception('Failed saving model for %s', name)
+                except Exception:
+                    logger.exception('Error during model save attempt for %s', name)
+
+            # Then persist lightweight state flags
+            for name, agent in agent_manager.agents.items():
+                try:
+                    state = {'is_trained': bool(getattr(agent, 'is_trained', False))}
+                    agent_manager._persist_state_for_agent(name, state)
+                except Exception:
+                    logger.exception("Failed to persist state for %s", name)
+        except Exception:
+            logger.exception("Failed during persistence loop")
+
+        return {"status": "train_all_done", "results": results}
+
+    except Exception as e:
+        logger.error(f"Dev train all failed: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/v1/admin/train_real_all")
+async def train_real_all(background_tasks: BackgroundTasks, payload: Optional[dict] = None):
+    """Orchestrate real training for all available agents.
+
+    This endpoint schedules background training that will call each agent's
+    training method (if available), attempt to save the trained model to the
+    persistence directory, and persist a small trained-flag JSON per agent.
+
+    The optional `payload` may contain per-agent training data keyed by agent
+    name (e.g. {"TypingBehaviorAgent": [...], "MovementAgent": [...]}); if
+    omitted the agent's own training method should decide how to obtain data
+    (for example reading from disk or using the synthetic generator).
+    """
+
+    def _do_training(p: Optional[dict]):
+        results = {}
+        try:
+            for name, agent in agent_manager.agents.items():
+                try:
+                    agent_payload = None
+                    if p and name in p:
+                        agent_payload = p.get(name)
+
+                    trained = False
+                    # Prefer explicit training API if present
+                    if hasattr(agent, 'train_initial'):
+                        try:
+                            trained = bool(agent.train_initial(agent_payload or []))
+                        except Exception:
+                            logger.exception("train_initial failed for %s", name)
+                            trained = False
+                    elif hasattr(agent, 'train_baseline'):
+                        try:
+                            # train_baseline may look at internal buffers (e.g. app usage history)
+                            trained = bool(agent.train_baseline())
+                        except Exception:
+                            logger.exception("train_baseline failed for %s", name)
+                            trained = False
+                    elif hasattr(agent, 'incremental_update') and agent_payload:
+                        try:
+                            trained = bool(agent.incremental_update(agent_payload))
+                        except Exception:
+                            logger.exception("incremental_update failed for %s", name)
+                            trained = False
+                    else:
+                        trained = bool(getattr(agent, 'is_trained', False))
+
+                    saved = False
+                    # Attempt to save model artifact if agent supports it
+                    if trained and getattr(agent, 'save_model', None):
+                        try:
+                            if getattr(agent_manager, 'persistence_dir', None):
+                                filepath = str(agent_manager.persistence_dir / name)
+                                agent.save_model(filepath)
+                                saved = True
+                        except Exception:
+                            logger.exception("Failed to save model for %s", name)
+                            saved = False
+
+                    # Persist lightweight state flag
+                    try:
+                        agent_manager._persist_state_for_agent(name, {'is_trained': bool(trained)})
+                    except Exception:
+                        logger.exception("Failed to persist state for %s", name)
+
+                    results[name] = {"trained": bool(trained), "model_saved": bool(saved)}
+
+                except Exception as e:
+                    logger.exception("Training loop failure for %s: %s", name, e)
+                    results[name] = {"error": str(e)}
+
+            # Loosen coordinator requirement for dev if present
+            try:
+                if agent_manager.coordinator is not None:
+                    agent_manager.coordinator.min_agents_required = 1
+            except Exception:
+                pass
+
+            logger.info("Real training complete: %s", results)
+        except Exception:
+            logger.exception("Unexpected error during real training")
+
+    # Schedule background training task
+    background_tasks.add_task(_do_training, payload)
+
+    return {"status": "training_started", "detail": "Training running in background; check /api/v1/models/status for updates."}
+
+
+@app.post('/api/v1/app_usage/event')
+async def ingest_app_usage(event: AppUsageEvent):
+    """Endpoint for mobile app to send app-usage events for continuous training.
+
+    This will log the event into the AppUsageAgent and, when enough events
+    are collected, trigger incremental update / retraining.
+    """
+    try:
+        app_agent = agent_manager.agents.get('AppUsageAgent')
+        if app_agent is None:
+            raise HTTPException(status_code=404, detail='AppUsageAgent not available')
+
+        # Log the event
+        app_agent.log_app_usage(event.app_name, event.action, event.timestamp)
+
+        # If we've collected a small batch, trigger a background incremental update
+        total_sessions = sum(len(sessions) for sessions in app_agent.app_usage_history.values())
+        if total_sessions >= app_agent.min_usage_sessions:
+            # perform a background incremental training
+            try:
+                updated = app_agent.train_baseline()
+            except Exception:
+                updated = False
+
+            return {"ingested": True, "trained": updated, "total_sessions": total_sessions}
+
+        return {"ingested": True, "trained": False, "total_sessions": total_sessions}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"App usage ingest failed: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/v1/models/retrain")

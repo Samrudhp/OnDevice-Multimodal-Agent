@@ -351,6 +351,31 @@ class AppUsageAgent(BaseAgent):
             'is_trained': self.is_trained,
             'last_update_time': self.last_update_time
         }
+
+    # Adapter methods to satisfy BaseAgent abstract interface
+    def capture_data(self, sensor_data: Dict[str, Any]) -> Optional[np.ndarray]:
+        """Extract app usage information into a simple vector (counts per app).
+        For now, return None to indicate usage-only analysis is through analyze()."""
+        return None
+
+    def predict(self, features: np.ndarray) -> AgentResult:
+        """Not applicable for AppUsageAgent; perform analyze() on provided dict."""
+        # If features is actually a dict packed as numpy (unlikely), fall back.
+        return self._create_error_result("Predict interface not supported; use analyze()", time.time())
+
+    def train_initial(self, training_data: List[np.ndarray]) -> bool:
+        """Train baseline usage stats from provided historical events.
+        Accepts a list of dict-like objects in practice; here we call train_baseline()."""
+        return self.train_baseline()
+
+    def incremental_update(self, new_data: List[np.ndarray], is_anomaly: List[bool] = None) -> bool:
+        """Process streaming usage events provided as new_data dicts."""
+        try:
+            # Expect new_data to be a list of usage event dicts
+            events = {'usage_events': new_data}
+            return self.update_model(events)
+        except Exception:
+            return False
     
     def save_model(self, filepath: str) -> bool:
         """Save the trained model to file"""

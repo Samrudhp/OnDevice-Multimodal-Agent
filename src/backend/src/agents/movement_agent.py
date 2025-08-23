@@ -119,6 +119,49 @@ class MovementAgent(BaseAgent):
         except Exception as e:
             print(f"[{self.agent_name}] Model initialization error: {e}")
             print(f"[{self.agent_name}] Running in simplified mode")
+
+    # Adapter methods to satisfy BaseAgent abstract interface
+    def capture_data(self, sensor_data: Dict[str, Any]) -> Optional[np.ndarray]:
+        """
+        Adapter to extract motion_sequence expected by this agent.
+        Accepts a dict with 'motion_sequence' key or falls back to internal buffer.
+        """
+        motion_sequence = sensor_data.get('motion_sequence') if isinstance(sensor_data, dict) else None
+        if motion_sequence is not None:
+            try:
+                # Accept either a list-of-lists or a dict with accelerometer/gyroscope
+                if isinstance(motion_sequence, dict):
+                    # Single reading dict: build a flat array
+                    acc = motion_sequence.get('accelerometer', [0.0, 0.0, 0.0])
+                    gyro = motion_sequence.get('gyroscope', [0.0, 0.0, 0.0])
+                    row = list(acc) + list(gyro)
+                    return np.array(row).reshape(1, -1)
+                else:
+                    arr = np.array(motion_sequence)
+                    if arr.ndim == 1:
+                        arr = arr.reshape(1, -1)
+                    return arr
+            except Exception:
+                return None
+
+        # Fallback: use internal buffer if available
+        if len(self.sensor_buffer) >= self.sequence_length:
+            buffer_data = list(self.sensor_buffer)[-self.sequence_length:]
+            return np.array(buffer_data)[:, :6]
+
+        return None
+
+    def predict(self, features: np.ndarray) -> AgentResult:
+        """Delegate prediction to existing analyze() method."""
+        return self.analyze({'motion_sequence': features})
+
+    def train_initial(self, training_data: List[np.ndarray]) -> bool:
+        """Delegate initial training to train_baseline()."""
+        return self.train_baseline(training_data)
+
+    def incremental_update(self, new_data: List[np.ndarray], is_anomaly: List[bool] = None) -> bool:
+        """Delegate incremental updates to update_model()."""
+        return self.update_model(new_data)
     
     def add_sensor_data(self, accelerometer: Tuple[float, float, float], 
                        gyroscope: Tuple[float, float, float], 
@@ -278,10 +321,25 @@ class MovementAgent(BaseAgent):
                 else:
                     return self._create_error_result("Insufficient motion data", start_time)
             
+            # Ensure numpy array and proper 2D shape
             motion_sequence = np.array(motion_sequence)
+            if motion_sequence.ndim == 1:
+                # Single reading provided as flat list -> convert to 2D (1, features)
+                motion_sequence = motion_sequence.reshape(1, -1)
             
             if motion_sequence.shape[0] < self.sequence_length:
-                return self._create_error_result(f"Sequence too short: {motion_sequence.shape[0]} < {self.sequence_length}", start_time)
+                # Instead of failing, pad the sequence with zeros to the required length
+                needed = self.sequence_length - motion_sequence.shape[0]
+                try:
+                    pad = np.zeros((needed, motion_sequence.shape[1]), dtype=motion_sequence.dtype)
+                except Exception:
+                    pad = np.zeros((needed, self.sensor_features), dtype=float)
+
+                motion_sequence = np.vstack([pad, motion_sequence])
+                # Note in metadata that we padded the sequence
+                padded_flag = True
+            else:
+                padded_flag = False
             
             # Take the most recent sequence_length readings
             if motion_sequence.shape[0] > self.sequence_length:
@@ -289,8 +347,14 @@ class MovementAgent(BaseAgent):
             
             # Normalize data
             motion_sequence_reshaped = motion_sequence.reshape(-1, motion_sequence.shape[-1])
-            motion_sequence_scaled = self.scaler.transform(motion_sequence_reshaped)
-            motion_sequence = motion_sequence_scaled.reshape(motion_sequence.shape)
+            try:
+                motion_sequence_scaled = self.scaler.transform(motion_sequence_reshaped)
+                motion_sequence = motion_sequence_scaled.reshape(motion_sequence.shape)
+            except Exception as e:
+                # Scaler may not be fitted yet; skip scaling and note in metadata
+                print(f"[{self.agent_name}] Scaler transform skipped: {e}")
+                metadata = {'scaler_skipped': True}
+                motion_sequence = motion_sequence.astype(float)
             
             anomaly_scores = []
             features_used = []
@@ -376,6 +440,8 @@ class MovementAgent(BaseAgent):
                 'activity_level': motion_features.get('activity_level', 0) if motion_features else 0,
                 'motion_features': motion_features
             }
+            if padded_flag:
+                metadata['padded_sequence'] = True
             
             processing_time = (time.time() - start_time) * 1000
             

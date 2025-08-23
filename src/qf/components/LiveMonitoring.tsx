@@ -99,16 +99,33 @@ export default function LiveMonitoring({
       // Get current model status
       const modelStatus = await api.getModelStatus();
       console.log('Model status:', modelStatus);
-      
-      // Check if any models need to be loaded
-      const inactiveAgents = Object.entries(modelStatus.agents_status || {})
-        .filter(([_, status]) => !status.is_active)
+
+      // Backend returns { models: { <agent>: { is_trained, ... } } }
+      // Older client code expected agents_status. Accept both shapes.
+      // Accept both the current { models: { ... } } shape and any legacy shapes
+      const msAny: any = modelStatus as any;
+      const modelsMap: Record<string, any> = (msAny && (msAny.models || msAny.agents_status)) || {};
+
+      // Identify inactive agents (if any). If key shape differs, fall back to empty.
+      const inactiveAgents = Object.entries(modelsMap || {})
+        .filter(([_, status]) => !(status && status.is_trained))
         .map(([agentType, _]) => agentType);
       
       if (inactiveAgents.length > 0) {
         console.log(`Loading inactive models: ${inactiveAgents.join(', ')}`);
-        // Load only inactive models
-        const result = await api.loadModels(inactiveAgents);
+        // Load only inactive models. `loadModels` may not be implemented on the API client; guard it.
+        let result: any = {};
+        if ((api as any).loadModels && typeof (api as any).loadModels === 'function') {
+          try {
+            result = await (api as any).loadModels(inactiveAgents);
+          } catch (e) {
+            console.warn('loadModels failed:', e);
+            result = { error: String(e) };
+          }
+        } else {
+          console.log('API client does not support loadModels(); skipping model load step');
+          result = { skipped: true };
+        }
         console.log('Model loading result:', result);
         
         // Show success message to user
@@ -214,7 +231,23 @@ export default function LiveMonitoring({
       const result = await api.processRealtimeSensorData(sessionId, data);
       
       console.log('Processing result:', result);
+      // Defensive validation: ensure we received a numeric anomaly_score
+      if (!result || typeof result.anomaly_score !== 'number') {
+        console.error('Invalid processing result received from API:', result);
+        Alert.alert('Processing Error', 'Invalid response from server. Check logs for details.');
+        setIsProcessing(false);
+        return;
+      }
+
       console.log(`Anomaly score: ${result.anomaly_score}, Risk level: ${result.risk_level}`);
+
+      // Extra dev-time check: if everything is zero, log and hint to check raw response
+      if (result.anomaly_score === 0 && result.confidence === 0 && result.processing_time_ms === 0) {
+        console.warn('Received all-zero processing result; check network, server logs, or RAW_RESPONSE in client dev console');
+        if (typeof __DEV__ !== 'undefined' && __DEV__) {
+          Alert.alert('Debug', 'Received empty processing result (all zeros). Check RAW_RESPONSE in console and server debug log.');
+        }
+      }
       
       // Display detailed agent results
       const agentResults = Object.entries(result.agent_results || {});

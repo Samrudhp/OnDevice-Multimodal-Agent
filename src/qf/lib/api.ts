@@ -269,18 +269,42 @@ export class QuadFusionAPI {
         signal: controller.signal,
         ...options,
       });
-      
+
       clearTimeout(timeoutId);
-      
+
       // Update connection status based on response
       this.updateConnectionStatus(API_CONNECTION_STATUS.CONNECTED);
 
+      // Read raw response text so we can log it in dev and parse robustly
+      const rawText = await response.text().catch(() => '');
+
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
+        let errorData: any = {};
+        try {
+          errorData = rawText ? JSON.parse(rawText) : {};
+        } catch (e) {
+          // ignore parse errors, keep rawText
+        }
         throw new Error(`HTTP ${response.status}: ${errorData.message || response.statusText}`);
       }
 
-      return await response.json();
+      // Dev: log raw response to help debug client parsing issues
+      if (typeof __DEV__ !== 'undefined' && __DEV__) {
+        try {
+          console.log(`RAW_RESPONSE for ${endpoint}:`, rawText);
+        } catch (e) {
+          // ignore logging errors
+        }
+      }
+
+      // Parse JSON robustly and return
+      try {
+        const parsed = rawText ? JSON.parse(rawText) : {};
+        return parsed as T;
+      } catch (err) {
+        console.error('Failed to parse JSON response for', endpoint, err, rawText);
+        throw err;
+      }
     } catch (error: any) {
       console.error(`API Request failed for ${endpoint}:`, error);
       

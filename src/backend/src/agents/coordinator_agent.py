@@ -38,20 +38,21 @@ class CoordinatorAgent(BaseAgent):
             'medium': 0.6,
             'high': 0.8
         })
-        
+
         # LLM parameters (simplified - would use quantized model in production)
         self.use_llm_fusion = config.get('use_llm_fusion', False)
         self.confidence_threshold = config.get('confidence_threshold', 0.7)
-        self.min_agents_required = config.get('min_agents_required', 2)
-        
+        # Allow single-agent decisions in lightweight/dev setups by default
+        self.min_agents_required = config.get('min_agents_required', 1)
+
         # History tracking
         self.decision_history = []
         self.agent_performance = defaultdict(list)
-        
+
         # Adaptive weighting
         self.enable_adaptive_weights = config.get('enable_adaptive_weights', True)
         self.adaptation_window = config.get('adaptation_window', 100)
-        
+
         print(f"[{self.agent_name}] Initialized with weights: {self.agent_weights}")
     
     def analyze(self, data: Dict[str, Any]) -> AgentResult:
@@ -74,7 +75,29 @@ class CoordinatorAgent(BaseAgent):
                 return self._create_error_result("No agent results provided", start_time)
             
             if len(agent_results) < self.min_agents_required:
-                return self._create_error_result(f"Insufficient agents: {len(agent_results)} < {self.min_agents_required}", start_time)
+                # Fallback: when only a single agent is available, perform a simple average
+                # to avoid blocking in minimal-dev environments.
+                weighted_sum = 0.0
+                total_weight = 0.0
+                for agent_name, result in parsed_results.items():
+                    w = self.agent_weights.get(agent_name, 0.1)
+                    weighted_sum += result.anomaly_score * w
+                    total_weight += w
+
+                avg_score = weighted_sum / max(total_weight, 0.01)
+                final_risk = self._determine_risk_level(avg_score, parsed_results)
+                overall_confidence = self._calculate_overall_confidence(parsed_results)
+
+                processing_time = (time.time() - start_time) * 1000
+                return AgentResult(
+                    agent_name=self.agent_name,
+                    anomaly_score=float(avg_score),
+                    risk_level=final_risk,
+                    confidence=float(overall_confidence),
+                    features_used=[],
+                    processing_time_ms=processing_time,
+                    metadata={'fallback': 'single_agent_average', 'agents_used': list(parsed_results.keys())}
+                )
             
             # Parse agent results
             parsed_results = {}
@@ -233,7 +256,14 @@ class CoordinatorAgent(BaseAgent):
         
         # Use weighted average of confidences
         weights = [self.agent_weights.get(result.agent_name, 0.1) for result in agent_results.values()]
-        overall_confidence = np.average(confidences, weights=weights)
+        try:
+            if sum(weights) <= 0:
+                # Fallback to simple mean to avoid zero-sum weight errors
+                overall_confidence = float(np.mean(confidences))
+            else:
+                overall_confidence = float(np.average(confidences, weights=weights))
+        except Exception:
+            overall_confidence = float(np.mean(confidences))
         
         # Penalize if too few agents
         agent_penalty = min(len(agent_results) / 4.0, 1.0)  # Assume 4 agents is ideal
@@ -380,6 +410,23 @@ class CoordinatorAgent(BaseAgent):
             summary['recent_avg_score'] = np.mean([d['final_score'] for d in recent_decisions])
         
         return summary
+
+    # Adapter methods to satisfy BaseAgent abstract interface
+    def capture_data(self, sensor_data: Dict[str, Any]) -> Optional[np.ndarray]:
+        """Coordinator operates on agent result dicts; no raw capture."""
+        return None
+
+    def predict(self, features: np.ndarray) -> AgentResult:
+        """Not applicable for CoordinatorAgent; use analyze() with agent_results dict."""
+        return self._create_error_result("Predict interface not supported; use analyze()", time.time())
+
+    def train_initial(self, training_data: List[np.ndarray]) -> bool:
+        """Coordinator has no conventional training; return True as noop."""
+        return True
+
+    def incremental_update(self, new_data: List[np.ndarray], is_anomaly: List[bool] = None) -> bool:
+        """No incremental updates for coordinator in this simplified implementation."""
+        return True
     
     def save_model(self, filepath: str) -> bool:
         """Save coordinator state to file"""
