@@ -261,15 +261,19 @@ export class QuadFusionAPI {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), TIMEOUTS.REQUEST);
       
-      const response = await fetch(url, {
-        headers: {
-          'Content-Type': 'application/json',
-          ...options.headers,
-        },
+      // Prepare request init so we can both log it (in dev) and pass to fetch
+      const headers = {
+        'Content-Type': 'application/json',
+        ...options.headers,
+      };
+
+      const requestInit: RequestInit = {
+        ...options,
+        headers,
         signal: controller.signal,
         ...options,
       });
-      
+
       clearTimeout(timeoutId);
       
       // Update connection status based on response
