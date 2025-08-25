@@ -262,14 +262,36 @@ export class QuadFusionAPI {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), TIMEOUTS.REQUEST);
       
-      const response = await fetch(url, {
-        headers: {
-          'Content-Type': 'application/json',
-          ...options.headers,
-        },
-        signal: controller.signal,
+      // Prepare request init so we can both log it (in dev) and pass to fetch
+      const headers = {
+        'Content-Type': 'application/json',
+        ...options.headers,
+      };
+
+      const requestInit: RequestInit = {
         ...options,
-      });
+        headers,
+        signal: controller.signal,
+      };
+
+      // Dev: print the final resolved request for easier debugging on device
+      if (typeof __DEV__ !== 'undefined' && __DEV__) {
+        try {
+          // Avoid logging the AbortSignal
+          const safeLog = {
+            url,
+            method: (requestInit as any).method || 'GET',
+            headers,
+            // options.body may be a string; try to parse for readability
+            body: typeof (requestInit as any).body === 'string' ? (requestInit as any).body : (requestInit as any).body,
+          };
+          console.log('API Request =>', safeLog);
+        } catch (e) {
+          // ignore logging errors
+        }
+      }
+
+      const response = await fetch(url, requestInit);
 
       clearTimeout(timeoutId);
 
