@@ -116,7 +116,7 @@ export default function ProcessingResultDisplay({
           <View style={styles.metric}>
             <Text style={styles.metricLabel}>Processing Time</Text>
             <Text style={styles.metricValue}>
-              {result.processing_time_ms.toFixed(0)}ms
+              {result.processing_time_ms < 1 ? result.processing_time_ms.toFixed(2) : result.processing_time_ms.toFixed(0)}ms
             </Text>
           </View>
         </View>
@@ -309,7 +309,7 @@ const styles = StyleSheet.create({
   agentResult: {
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
+    borderBottomColor: COLORS.GRAY_700,
   },
   agentHeader: {
     flexDirection: 'row',
@@ -320,12 +320,18 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 16,
     fontWeight: '600',
-    color: '#374151',
+    color: COLORS.WHITE,
     marginLeft: 8,
+    textShadowColor: COLORS.GLOW,
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 2,
   },
   agentScore: {
     fontSize: 16,
     fontWeight: '700',
+    textShadowColor: COLORS.GLOW,
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 2,
   },
   featuresContainer: {
     marginTop: 4,
@@ -333,12 +339,12 @@ const styles = StyleSheet.create({
   },
   featuresLabel: {
     fontSize: 12,
-    color: '#6B7280',
+    color: COLORS.GRAY_300,
     marginBottom: 2,
   },
   featuresText: {
     fontSize: 12,
-    color: '#9CA3AF',
+    color: COLORS.GRAY_300,
   },
   sensorSummary: {
     flexDirection: 'row',
@@ -348,14 +354,16 @@ const styles = StyleSheet.create({
   sensorStat: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F9FAFB',
+    backgroundColor: COLORS.GRAY_700,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 6,
+    borderWidth: 1,
+    borderColor: COLORS.ACCENT,
   },
   sensorStatText: {
     fontSize: 12,
-    color: '#6B7280',
+    color: COLORS.GRAY_300,
     marginLeft: 4,
   },
   metadataItem: {
@@ -365,12 +373,15 @@ const styles = StyleSheet.create({
   metadataKey: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#374151',
+    color: COLORS.WHITE,
     minWidth: 100,
+    textShadowColor: COLORS.GLOW,
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 2,
   },
   metadataValue: {
     flex: 1,
     fontSize: 14,
-    color: '#6B7280',
+    color: COLORS.GRAY_300,
   },
 });

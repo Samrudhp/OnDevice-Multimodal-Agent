@@ -778,12 +778,49 @@ async def process_realtime_debug(request: Request):
         raw = await request.body()
         raw_s = raw.decode('utf-8', errors='replace')
 
-        # Attempt to parse into pydantic model
+        # Attempt to parse into pydantic model. If parse_raw fails, try to
+        # json.loads the body and perform light normalization to accept a
+        # `motion_sequence` field (client-side buffer) by coercing it into
+        # the expected `motion_data` shape. This makes the debug endpoint
+        # more tolerant to minor client-side schema differences and gives
+        # clearer error messages for malformed payloads.
+        payload = None
         try:
             payload = RealtimeProcessingRequest.parse_raw(raw_s)
         except Exception as e:
-            logger.exception('Failed to parse RealtimeProcessingRequest in debug endpoint')
-            raise HTTPException(status_code=400, detail=f'Invalid payload: {e}')
+            # First, try to interpret body as JSON and normalize common
+            # client-side shapes (e.g., motion_sequence -> motion_data)
+            try:
+                parsed = json.loads(raw_s)
+            except Exception as json_err:
+                logger.exception('Failed to parse RealtimeProcessingRequest and raw body is not valid JSON')
+                # Provide a short preview to help debugging
+                preview = (raw_s[:300] + '...') if len(raw_s) > 300 else raw_s
+                raise HTTPException(status_code=400, detail=f'Invalid JSON payload: {json_err}; preview: {preview}')
+
+            # Normalize sensor_data.motion_sequence -> sensor_data.motion_data
+            try:
+                if isinstance(parsed, dict) and 'sensor_data' in parsed:
+                    sd = parsed.get('sensor_data') or {}
+                    # If client sent a motion_sequence (array of samples), but
+                    # server expects a single motion_data object, try to coerce.
+                    if 'motion_sequence' in sd and 'motion_data' not in sd:
+                        ms = sd.get('motion_sequence')
+                        if isinstance(ms, list) and len(ms) > 0 and isinstance(ms[0], dict):
+                            # Take the first sample as a representative motion_data
+                            sd['motion_data'] = ms[0]
+                        elif isinstance(ms, dict):
+                            sd['motion_data'] = ms
+                        # leave motion_sequence in place for agents that might use it
+                        parsed['sensor_data'] = sd
+
+                # Try to coerce into the pydantic model now
+                payload = RealtimeProcessingRequest.parse_obj(parsed)
+            except Exception as e2:
+                logger.exception('Failed to coerce JSON into RealtimeProcessingRequest in debug endpoint')
+                preview = (raw_s[:300] + '...') if len(raw_s) > 300 else raw_s
+                # Surface both the pydantic error and a short body preview
+                raise HTTPException(status_code=400, detail=f'Invalid payload: {e2}; raw_preview: {preview}')
 
         # Process through existing AgentManager
         result = agent_manager.process_sensor_data(payload.sensor_data, payload.session_id)

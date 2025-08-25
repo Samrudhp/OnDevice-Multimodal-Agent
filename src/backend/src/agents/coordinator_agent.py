@@ -74,32 +74,7 @@ class CoordinatorAgent(BaseAgent):
             if not agent_results:
                 return self._create_error_result("No agent results provided", start_time)
             
-            if len(agent_results) < self.min_agents_required:
-                # Fallback: when only a single agent is available, perform a simple average
-                # to avoid blocking in minimal-dev environments.
-                weighted_sum = 0.0
-                total_weight = 0.0
-                for agent_name, result in parsed_results.items():
-                    w = self.agent_weights.get(agent_name, 0.1)
-                    weighted_sum += result.anomaly_score * w
-                    total_weight += w
-
-                avg_score = weighted_sum / max(total_weight, 0.01)
-                final_risk = self._determine_risk_level(avg_score, parsed_results)
-                overall_confidence = self._calculate_overall_confidence(parsed_results)
-
-                processing_time = (time.time() - start_time) * 1000
-                return AgentResult(
-                    agent_name=self.agent_name,
-                    anomaly_score=float(avg_score),
-                    risk_level=final_risk,
-                    confidence=float(overall_confidence),
-                    features_used=[],
-                    processing_time_ms=processing_time,
-                    metadata={'fallback': 'single_agent_average', 'agents_used': list(parsed_results.keys())}
-                )
-            
-            # Parse agent results
+            # Parse agent results first
             parsed_results = {}
             for agent_name, result_data in agent_results.items():
                 if isinstance(result_data, AgentResult):
@@ -115,6 +90,38 @@ class CoordinatorAgent(BaseAgent):
                         processing_time_ms=result_data.get('processing_time_ms', 0.0),
                         metadata=result_data.get('metadata', {})
                     )
+            
+            # Check if we have enough agents after parsing
+            if len(parsed_results) < self.min_agents_required:
+                # Fallback: when only a single agent is available, perform a simple average
+                # to avoid blocking in minimal-dev environments.
+                weighted_sum = 0.0
+                total_weight = 0.0
+                for agent_name, result in parsed_results.items():
+                    w = self.agent_weights.get(agent_name, 0.1)
+                    weighted_sum += result.anomaly_score * w
+                    total_weight += w
+
+                if total_weight <= 0:
+                    # Emergency fallback if all weights are zero
+                    avg_score = 0.5
+                    total_weight = 1.0
+                else:
+                    avg_score = weighted_sum / total_weight
+                
+                final_risk = self._determine_risk_level(avg_score, parsed_results)
+                overall_confidence = self._calculate_overall_confidence(parsed_results)
+
+                processing_time = (time.time() - start_time) * 1000
+                return AgentResult(
+                    agent_name=self.agent_name,
+                    anomaly_score=float(avg_score),
+                    risk_level=final_risk,
+                    confidence=float(overall_confidence),
+                    features_used=[],
+                    processing_time_ms=processing_time,
+                    metadata={'fallback': 'single_agent_average', 'agents_used': list(parsed_results.keys())}
+                )
             
             # Weighted fusion of anomaly scores
             weighted_score = self._calculate_weighted_score(parsed_results)
@@ -191,7 +198,12 @@ class CoordinatorAgent(BaseAgent):
             weighted_sum += result.anomaly_score * weight
             total_weight += weight
         
-        return weighted_sum / max(total_weight, 0.01)
+        if total_weight <= 0:
+            # Emergency fallback: if all weights are zero, return average
+            scores = [result.anomaly_score for result in agent_results.values()]
+            return float(np.mean(scores)) if scores else 0.5
+        
+        return weighted_sum / total_weight
     
     def _apply_confidence_weighting(self, agent_results: Dict[str, AgentResult], base_score: float) -> float:
         """Adjust score based on agent confidences"""
