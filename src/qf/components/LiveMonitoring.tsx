@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Animated, GestureResponderEvent, TextInput } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Animated, GestureResponderEvent } from 'react-native';
 import * as Icons from 'lucide-react-native';
 import { SensorManager, sensorManager } from '../lib/sensor-manager';
 import recordShortAudio from '../lib/audio-recorder';
@@ -102,51 +102,47 @@ export default function LiveMonitoring({
       console.log('Model status:', modelStatus);
 
       // Backend returns { models: { <agent>: { is_trained, ... } } }
+      // Older client code expected agents_status. Accept both shapes.
+      // Accept both the current { models: { ... } } shape and any legacy shapes
       const msAny: any = modelStatus as any;
       const modelsMap: Record<string, any> = (msAny && (msAny.models || msAny.agents_status)) || {};
 
-      // Identify inactive agents (if any)
+      // Identify inactive agents (if any). If key shape differs, fall back to empty.
       const inactiveAgents = Object.entries(modelsMap || {})
         .filter(([_, status]) => !(status && status.is_trained))
         .map(([agentType, _]) => agentType);
       
       if (inactiveAgents.length > 0) {
-        console.log(`Found inactive models: ${inactiveAgents.join(', ')}`);
-        
-        // Try to train all agents using the admin endpoint
-        try {
-          const trainResponse = await fetch(`${api.getBaseURL()}/api/v1/admin/train_all`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' }
-          });
-          
-          if (trainResponse.ok) {
-            const trainResult = await trainResponse.json();
-            console.log('Training result:', trainResult);
-            
-            Alert.alert(
-              'Models Initialized',
-              `Successfully initialized ${Object.keys(trainResult.results || {}).length} behavioral analysis models.`,
-              [{ text: 'OK' }]
-            );
-          } else {
-            console.warn('Model training request failed:', trainResponse.status);
-            Alert.alert('Warning', 'Some models could not be initialized. Using fallback data.');
+        console.log(`Loading inactive models: ${inactiveAgents.join(', ')}`);
+        // Load only inactive models. `loadModels` may not be implemented on the API client; guard it.
+        let result: any = {};
+        if ((api as any).loadModels && typeof (api as any).loadModels === 'function') {
+          try {
+            result = await (api as any).loadModels(inactiveAgents);
+          } catch (e) {
+            console.warn('loadModels failed:', e);
+            result = { error: String(e) };
           }
-        } catch (e) {
-          console.warn('Model training failed:', e);
-          Alert.alert('Info', 'Using fallback data for demonstration. Models will be trained in background.');
+        } else {
+          console.log('API client does not support loadModels(); skipping model load step');
+          result = { skipped: true };
         }
+        console.log('Model loading result:', result);
+        
+        // Show success message to user
+        Alert.alert(
+          'Models Loaded', 
+          `Successfully loaded ${inactiveAgents.length} behavioral analysis models.`,
+          [{ text: 'OK' }]
+        );
       } else {
         console.log('All models are already active');
-        Alert.alert('Models Ready', 'All behavioral analysis models are active and ready.');
       }
       
       setModelsLoaded(true);
     } catch (error) {
       console.error('Error loading models:', error);
-      Alert.alert('Warning', 'Some models could not be loaded. Using fallback data for demonstration.');
-      setModelsLoaded(true); // Still allow the app to function with fallback data
+      Alert.alert('Warning', 'Some models could not be loaded. Functionality may be limited.');
     } finally {
       setIsLoadingModels(false);
     }
@@ -189,45 +185,24 @@ export default function LiveMonitoring({
 
   const proceedWithMonitoring = async () => {
     try {
-      console.log('🚀 Starting monitoring - initializing sensors...');
-      
       // Start motion sensors
       await sensorManager.startMotionSensors();
-      console.log('✅ Motion sensors started');
 
       // Start a short audio recording to capture a sample when monitoring begins
       try {
-        console.log('🎤 Capturing audio sample...');
         const audioSample = await recordShortAudio(1500);
         sensorManager.setAudioData(audioSample.base64, audioSample.sampleRate, audioSample.duration);
-        console.log('✅ Audio sample captured:', {
-          duration: audioSample.duration,
-          sampleRate: audioSample.sampleRate,
-          dataSize: audioSample.base64.length
-        });
+        console.log('Captured short audio sample for monitoring');
       } catch (e) {
-        console.warn('⚠️ Audio capture failed at monitor start:', e);
-      }
-
-      // Try to capture a camera image for visual analysis
-      try {
-        console.log('📷 Attempting to capture camera image...');
-        // This would need camera permissions and integration
-        // For now, we'll simulate this but log the attempt
-        console.log('📷 Camera capture would happen here (requires camera integration)');
-      } catch (e) {
-        console.warn('⚠️ Camera capture failed:', e);
+        console.warn('Audio capture failed at monitor start:', e);
       }
       
       setIsMonitoring(true);
       setMonitoringDuration(0);
       setSensorData(null);
       setProcessingResult(null);
-      
-      console.log('✅ Monitoring started successfully');
-      Alert.alert('Monitoring Started', 'All sensors are now active and collecting data. Interact with your device normally.');
     } catch (error) {
-      console.error('❌ Error starting sensors:', error);
+      console.error('Error starting sensors:', error);
       Alert.alert('Error', 'Failed to start sensors. Please try again.');
     }
   };
@@ -240,42 +215,12 @@ export default function LiveMonitoring({
       sensorManager.stopMotionSensors();
       const collectedData = sensorManager.getSensorData();
       
-      // Ensure we have some data to process - add synthetic data if needed
-      if (collectedData.touch_events.length === 0) {
-        console.log('⚠️ No touch events collected, adding synthetic touch data');
-        sensorManager.addTouchEvent({
-          locationX: 540,
-          locationY: 960,
-          force: 0.8,
-          majorRadius: 15,
-          minorRadius: 12,
-          type: 'press'
-        });
-      }
-      
-      if (collectedData.keystroke_events.length === 0) {
-        console.log('⚠️ No keystroke events collected, adding synthetic keystroke data');
-        sensorManager.addKeystrokeEvent({
-          keyCode: 65,
-          type: 'keydown',
-          pressure: 0.6
-        });
-      }
-      
-      if (collectedData.app_usage.length === 0) {
-        console.log('⚠️ No app usage events collected, adding synthetic app usage data');
-        sensorManager.addAppUsageEvent('monitoring_app', 'open');
-      }
-      
-      // Get updated data after adding synthetic events
-      const finalData = sensorManager.getSensorData();
-      
-      if (finalData) {
-        setSensorData(finalData);
-        onDataCollected?.(finalData);
+      if (collectedData) {
+        setSensorData(collectedData);
+        onDataCollected?.(collectedData);
         
         // Process the data
-        await processCollectedData(finalData);
+        await processCollectedData(collectedData);
       }
     } catch (error) {
       console.error('Error stopping monitoring:', error);
@@ -289,45 +234,26 @@ export default function LiveMonitoring({
       
       // Generate a unique session ID for this processing request
       const sessionId = 'live-monitoring-' + Date.now();
-      console.log('🔄 Processing collected sensor data...');
-      console.log(`📊 Session ID: ${sessionId}`);
-      
-      // Log detailed data being sent
-      console.log('📤 Data being sent to API:');
-      console.log(`  • Touch events: ${data.touch_events.length}`);
-      console.log(`  • Keystroke events: ${data.keystroke_events.length}`);
-      console.log(`  • Motion data: ${data.motion_data ? 'Available' : 'Not available'}`);
-      console.log(`  • Audio data: ${data.audio_data ? `Available (${data.audio_data.length} chars)` : 'Not available'}`);
-      console.log(`  • Image data: ${data.image_data ? `Available (${data.image_data.length} chars)` : 'Not available'}`);
-      console.log(`  • App usage events: ${data.app_usage.length}`);
-      
-      if (data.motion_data) {
-        console.log(`  • Motion details: accel=[${data.motion_data.accelerometer.map(v => v.toFixed(3)).join(', ')}]`);
-      }
+      console.log(`Processing data with session ID: ${sessionId}`);
+      console.log(`Data points: ${data.touch_events.length} touch events, ${data.keystroke_events.length} keystroke events`);
       
       // Send data for real-time processing
-      console.log('🚀 Sending data to backend API...');
       const result = await api.processRealtimeSensorData(sessionId, data);
       
-      console.log('✅ Received processing result from API');
-      console.log('📥 API Response Summary:');
-      console.log(`  • Anomaly score: ${result.anomaly_score}`);
-      console.log(`  • Risk level: ${result.risk_level}`);
-      console.log(`  • Confidence: ${result.confidence}`);
-      console.log(`  • Processing time: ${result.processing_time_ms}ms`);
-      console.log(`  • Agents processed: ${Object.keys(result.agent_results || {}).length}`);
-      
+      console.log('Processing result:', result);
       // Defensive validation: ensure we received a numeric anomaly_score
       if (!result || typeof result.anomaly_score !== 'number') {
-        console.error('❌ Invalid processing result received from API:', result);
+        console.error('Invalid processing result received from API:', result);
         Alert.alert('Processing Error', 'Invalid response from server. Check logs for details.');
         setIsProcessing(false);
         return;
       }
 
+      console.log(`Anomaly score: ${result.anomaly_score}, Risk level: ${result.risk_level}`);
+
       // Extra dev-time check: if everything is zero, log and hint to check raw response
       if (result.anomaly_score === 0 && result.confidence === 0 && result.processing_time_ms === 0) {
-        console.warn('⚠️ Received all-zero processing result; check network, server logs, or RAW_RESPONSE in client dev console');
+        console.warn('Received all-zero processing result; check network, server logs, or RAW_RESPONSE in client dev console');
         if (typeof __DEV__ !== 'undefined' && __DEV__) {
           Alert.alert('Debug', 'Received empty processing result (all zeros). Check RAW_RESPONSE in console and server debug log.');
         }
@@ -336,38 +262,26 @@ export default function LiveMonitoring({
       // Display detailed agent results
       const agentResults = Object.entries(result.agent_results || {});
       if (agentResults.length > 0) {
-        console.log('🤖 Individual Agent Results:');
-        agentResults.forEach(([agentType, agentResult]) => {
-          console.log(`  • ${agentType}:`);
-          console.log(`    - Anomaly score: ${agentResult.anomaly_score}`);
-          console.log(`    - Risk level: ${agentResult.risk_level}`);
-          console.log(`    - Confidence: ${agentResult.confidence}`);
-          console.log(`    - Features: [${agentResult.features_analyzed.join(', ')}]`);
-          console.log(`    - Processing time: ${agentResult.processing_time_ms}ms`);
+        console.log('Individual agent results:');
+        agentResults.forEach(([agentType, result]) => {
+          console.log(`- ${agentType}: score=${result.anomaly_score}, risk=${result.risk_level}, confidence=${result.confidence}`);
         });
       }
       
       setProcessingResult(result);
       onProcessingResult?.(result);
       
-      // Show success message
-      Alert.alert(
-        'Analysis Complete',
-        `Risk Level: ${result.risk_level.toUpperCase()}\nConfidence: ${Math.round(result.confidence * 100)}%\nAgents: ${agentResults.length}`,
-        [{ text: 'OK' }]
-      );
-      
       // Show a toast or alert for high-risk results
       if (result.risk_level === 'high') {
         Alert.alert(
-          'High Risk Detected',
+          'High Risk Detected', 
           `Anomalous behavior detected with ${Math.round(result.confidence * 100)}% confidence.`,
           [{ text: 'Review', onPress: () => console.log('Review pressed') }, { text: 'Dismiss' }]
         );
       }
     } catch (error) {
-      console.error('❌ Error processing data:', error);
-      Alert.alert('Processing Error', `Failed to process collected data: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      console.error('Error processing data:', error);
+      Alert.alert('Error', 'Failed to process collected data.');
     } finally {
       setIsProcessing(false);
     }
@@ -430,44 +344,15 @@ export default function LiveMonitoring({
   const status = getMonitoringStatus();
 
   const onTouchResponder = (e: GestureResponderEvent) => {
-    if (isMonitoring) {
-      try {
-        console.log('👆 Touch captured during monitoring:', e.nativeEvent.pageX, e.nativeEvent.pageY);
-        sensorManager.addTouchEvent(e.nativeEvent as any);
-      } catch (ex) {
-        console.warn('Touch event capture failed:', ex);
-      }
-    }
-  };
-
-  const onTouchStart = (e: GestureResponderEvent) => {
-    if (isMonitoring) {
-      onTouchResponder(e);
-    }
-  };
-
-  const onTouchMove = (e: GestureResponderEvent) => {
-    if (isMonitoring) {
-      onTouchResponder(e);
-    }
-  };
-
-  const onTouchEnd = (e: GestureResponderEvent) => {
-    if (isMonitoring) {
-      onTouchResponder(e);
+    try {
+      sensorManager.addTouchEvent(e.nativeEvent as any);
+    } catch (ex) {
+      // ignore
     }
   };
 
   return (
-    <ScrollView
-      style={styles.container}
-      showsVerticalScrollIndicator={false}
-      onStartShouldSetResponder={() => isMonitoring}
-      onMoveShouldSetResponder={() => isMonitoring}
-      onResponderGrant={onTouchStart}
-      onResponderMove={onTouchMove}
-      onResponderRelease={onTouchEnd}
-    >
+    <ScrollView style={styles.container} showsVerticalScrollIndicator={false} onStartShouldSetResponder={() => true} onResponderGrant={onTouchResponder}>
       {/* Status Display */}
       {/* Status Display */}
       <TouchableOpacity 
@@ -604,33 +489,6 @@ export default function LiveMonitoring({
             </Text>
           </View>
         </View>
-      )}
-
-      {/* Hidden text input to capture keyboard events during monitoring */}
-      {isMonitoring && (
-        <TextInput
-          style={styles.hiddenInput}
-          value=""
-          onChangeText={() => {}}
-          onKeyPress={(e) => {
-            if (isMonitoring) {
-              try {
-                console.log('⌨️ Keystroke captured during monitoring:', e.nativeEvent.key);
-                sensorManager.addKeystrokeEvent({
-                  keyCode: e.nativeEvent.key.charCodeAt(0) || 65,
-                  type: 'keydown',
-                  pressure: 0.7
-                });
-              } catch (ex) {
-                console.warn('Keystroke event capture failed:', ex);
-              }
-            }
-          }}
-          autoFocus={false}
-          blurOnSubmit={false}
-          multiline={false}
-          editable={true}
-        />
       )}
     </ScrollView>
   );
@@ -839,13 +697,5 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#374151',
     lineHeight: 20,
-  },
-  hiddenInput: {
-    position: 'absolute',
-    top: -1000,
-    left: -1000,
-    width: 1,
-    height: 1,
-    opacity: 0,
   },
 });

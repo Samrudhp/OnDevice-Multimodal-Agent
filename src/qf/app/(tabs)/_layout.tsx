@@ -242,18 +242,18 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="scan"
+        name="camera"
         options={{
-          title: 'Scan',
+          title: 'Camera',
           tabBarIcon: ({ color, focused }) => (
             <View style={styles.tabBarIconContainer}>
               {focused && (
-                <Animated.View 
+                <Animated.View
                   style={[styles.activeIndicator, {
                     width: screenDimensions.isSmallDevice ? 20 : 30,
                     transform: [{ scaleX: indicatorScale }],
                     opacity: glowAnim
-                  }]} 
+                  }]}
                 />
               )}
               <Animated.View style={[focused ? styles.tabBarIconActive : null, {
@@ -266,18 +266,18 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="monitor"
+        name="sensors"
         options={{
-          title: 'Monitor',
+          title: 'Sensors',
           tabBarIcon: ({ color, focused }) => (
             <View style={styles.tabBarIconContainer}>
               {focused && (
-                <Animated.View 
+                <Animated.View
                   style={[styles.activeIndicator, {
                     width: screenDimensions.isSmallDevice ? 20 : 30,
                     transform: [{ scaleX: indicatorScale }],
                     opacity: glowAnim
-                  }]} 
+                  }]}
                 />
               )}
               <Animated.View style={[focused ? styles.tabBarIconActive : null, {

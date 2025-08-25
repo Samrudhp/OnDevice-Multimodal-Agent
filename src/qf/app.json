@@ -4,7 +4,7 @@
     "slug": "bolt-expo-nativewind",
     "version": "1.0.0",
     "orientation": "portrait",
-  "icon": "./assets/images/icon.png",
+  "icon": "./assets/icon.png",
     "scheme": "myapp",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
@@ -26,9 +26,7 @@
         "camera": "camera",
         "index": "index",
         "sensors": "sensors",
-        "settings": "settings",
-        "scan": "scan",
-        "monitor": "monitor"
+        "settings": "settings"
       }
     }
   }

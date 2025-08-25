@@ -62,134 +62,50 @@ export default function CameraTab() {
     if (isAnalyzing) return;
 
     setIsAnalyzing(true);
-    console.log('📷 Starting camera analysis...');
 
     try {
       // Try to capture a picture from the camera view
       if (cameraRef.current && (cameraRef.current as any).takePictureAsync) {
-        console.log('📸 Capturing image from camera...');
-        const picture = await (cameraRef.current as any).takePictureAsync({
-          base64: true,
-          quality: 0.6,
-          skipProcessing: false
-        });
-        
+        const picture = await (cameraRef.current as any).takePictureAsync({ base64: true, quality: 0.6 });
         if (picture && picture.base64) {
-          console.log('✅ Image captured successfully:');
-          console.log(`  • Image size: ${picture.base64.length} characters`);
-          console.log(`  • Camera facing: ${facing}`);
-          console.log(`  • Image dimensions: ${picture.width}x${picture.height}`);
-          
           // Forward base64 image to SensorManager
           sensorManager.setImageData(picture.base64, facing === 'front' ? 'front' : 'rear');
-          console.log('✅ Image data stored in sensor manager');
 
-          // Also send a quick realtime processing request to backend for visual agent
+          // Also send a quick realtime processing request (small sample) to backend for visual agent
           const sessionId = 'camera-capture-' + Date.now();
-          console.log(`🚀 Sending image data to API for analysis (Session: ${sessionId})`);
-          
           const sensorData = sensorManager.getCurrentSensorData();
-          console.log('📤 Sensor data being sent:');
-          console.log(`  • Image data: ${sensorData.image_data ? 'Available' : 'Missing'}`);
-          console.log(`  • Camera type: ${sensorData.camera_type}`);
-          console.log(`  • Touch events: ${sensorData.touch_events.length}`);
-          console.log(`  • Motion data: ${sensorData.motion_data ? 'Available' : 'Missing'}`);
-          
           try {
             const result = await api.processRealtimeSensorData(sessionId, sensorData as any);
-            console.log('✅ Received analysis result from API:');
-            console.log(`  • Overall risk level: ${result.risk_level}`);
-            console.log(`  • Confidence: ${result.confidence}`);
-            console.log(`  • Agents processed: ${Object.keys(result.agent_results || {}).length}`);
-            
-            // Check specifically for visual agent results
-            const visualAgent = result.agent_results?.VisualAgent;
-            if (visualAgent) {
-              console.log('👁️ Visual Agent Results:');
-              console.log(`  • Anomaly score: ${visualAgent.anomaly_score}`);
-              console.log(`  • Features analyzed: [${visualAgent.features_analyzed.join(', ')}]`);
-              console.log(`  • Metadata:`, visualAgent.metadata);
-            }
-            
-            // Improved face detection logic - if we have visual agent results, use them intelligently
-            let faceDetected = true; // Default to detected since we captured an image
-            let confidence = result.confidence * 100;
-            
-            if (visualAgent) {
-              // Visual agent processed the image - interpret results
-              console.log('📊 Visual Agent Analysis:');
-              console.log(`  • Anomaly score: ${visualAgent.anomaly_score}`);
-              console.log(`  • Risk level: ${visualAgent.risk_level}`);
-              console.log(`  • Features: ${visualAgent.features_analyzed.join(', ')}`);
-              
-              // Lower anomaly score means more normal/expected behavior (face detected)
-              // Higher anomaly score means unusual/unexpected (no face or anomalous face)
-              faceDetected = visualAgent.anomaly_score < 0.7; // More lenient threshold
-              
-              // If confidence is very low, it might mean no clear face was detected
-              if (confidence < 30) {
-                faceDetected = false;
-                confidence = Math.max(confidence, 15); // Minimum confidence for "not detected"
-              } else {
-                // Boost confidence for detected faces
-                confidence = Math.min(confidence * 1.2, 95);
-              }
-            } else {
-              // No visual agent results - use fallback logic
-              console.log('⚠️ No visual agent results, using fallback detection');
-              faceDetected = Math.random() > 0.2; // 80% chance of detection
-              confidence = faceDetected ? 70 + Math.random() * 25 : 20 + Math.random() * 30;
-            }
-            
-            const biometricMatch = faceDetected && confidence > 70 && result.risk_level === 'low';
-            
-            setAnalysisResult({ faceDetected, confidence, biometricMatch });
-            
+            setAnalysisResult({ faceDetected: !!(result && result.agent_results && Object.keys(result.agent_results).length > 0), confidence: result.confidence || 0, biometricMatch: result.risk_level === 'low' });
             if (result.risk_level === 'high') {
-              Alert.alert('High Risk Detected', 'Potential high-risk visual anomaly detected in camera analysis.');
-            } else {
-              Alert.alert('Analysis Complete', `Face ${faceDetected ? 'detected' : 'not detected'} with ${confidence.toFixed(1)}% confidence`);
+              Alert.alert('High Risk', 'Potential high-risk visual anomaly detected.');
             }
           } catch (e) {
-            console.warn('⚠️ Visual processing API call failed:', e);
-            Alert.alert('API Error', 'Failed to process image through API. Using fallback analysis.');
-            // Enhanced fallback to local simulation if API fails
-            const fallbackDetected = Math.random() > 0.25; // 75% detection rate
-            const fallbackConfidence = fallbackDetected ? 65 + Math.random() * 25 : 25 + Math.random() * 35;
-            setAnalysisResult({
-              faceDetected: fallbackDetected,
-              confidence: fallbackConfidence,
-              biometricMatch: fallbackDetected && fallbackConfidence > 80
-            });
+            console.warn('Visual processing API call failed:', e);
+            // fallback to local simulation if API fails
+            setAnalysisResult({ faceDetected: true, confidence: 60, biometricMatch: false });
           }
         } else {
-          console.warn('⚠️ No image data received from camera');
-          Alert.alert('Camera Error', 'Failed to capture image data from camera');
+          // fallback to simulated analysis if no image
           setAnalysisResult({ faceDetected: false, confidence: 0, biometricMatch: false });
         }
       } else {
-        console.log('📷 Camera capture not available, using simulated analysis');
-        Alert.alert('Simulation Mode', 'Camera capture not available. Using simulated facial analysis.');
-        
-        // Enhanced simulated behavior with better detection rates
-        const faceDetected = Math.random() > 0.15; // 85% detection rate in simulation
-        const confidence = faceDetected ? 75 + Math.random() * 20 : 30 + Math.random() * 25;
-        const biometricMatch = faceDetected && confidence > 80;
+        // No native camera capture available; keep existing simulated behavior
+        const faceDetected = Math.random() > 0.2;
+        const confidence = faceDetected ? 70 + Math.random() * 30 : Math.random() * 40;
+        const biometricMatch = faceDetected && confidence > 85;
 
         setAnalysisResult({
           faceDetected,
           confidence,
           biometricMatch,
         });
-        
-        console.log('🎭 Simulated results:', { faceDetected, confidence, biometricMatch });
       }
     } catch (err) {
-      console.error('❌ Camera capture failed:', err);
-      Alert.alert('Camera Error', `Failed to capture image for analysis: ${err instanceof Error ? err.message : 'Unknown error'}`);
+      console.error('Camera capture failed:', err);
+      Alert.alert('Error', 'Failed to capture image for analysis');
     } finally {
       setIsAnalyzing(false);
-      console.log('📷 Camera analysis completed');
     }
   };
 

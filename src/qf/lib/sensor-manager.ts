@@ -48,136 +48,57 @@ export class SensorManager {
     if (this.isCollecting) return;
 
     this.isCollecting = true;
-    console.log('🚀 Starting motion sensors...');
     
     try {
-      // Check if sensors are available before trying to use them
-      const isAvailable = await Accelerometer.isAvailableAsync();
-      if (!isAvailable) {
-        console.warn('⚠️ Motion sensors not available on this device/platform');
-        // Create simulated motion data for testing
-        this.createSimulatedMotionData();
-        console.log('✅ Using simulated motion data');
-        return;
-      }
-
       // Set update intervals for better performance
       Accelerometer.setUpdateInterval(SENSOR_CONFIG.MOTION_UPDATE_INTERVAL); // 10Hz
       Gyroscope.setUpdateInterval(SENSOR_CONFIG.MOTION_UPDATE_INTERVAL);
       Magnetometer.setUpdateInterval(SENSOR_CONFIG.MOTION_UPDATE_INTERVAL);
 
-      let motionSampleCount = 0;
+      // Accelerometer
+      const accelerometerSubscription = Accelerometer.addListener(({ x, y, z, timestamp }) => {
+        // Keep a short time-series buffer of motion samples so backend can analyze sequences
+        const sample: MotionData = {
+          accelerometer: [x, y, z],
+          gyroscope: this.sensorData.motion_data?.gyroscope || [0, 0, 0],
+          magnetometer: this.sensorData.motion_data?.magnetometer || [0, 0, 0],
+          timestamp: timestamp / 1000, // Convert to seconds
+        };
 
-      // Accelerometer with error handling
-      try {
-        const accelerometerSubscription = Accelerometer.addListener(({ x, y, z, timestamp }) => {
-          // Keep a short time-series buffer of motion samples so backend can analyze sequences
-          const sample: MotionData = {
-            accelerometer: [x, y, z],
-            gyroscope: this.sensorData.motion_data?.gyroscope || [0, 0, 0],
-            magnetometer: this.sensorData.motion_data?.magnetometer || [0, 0, 0],
-            timestamp: timestamp / 1000, // Convert to seconds
-          };
+        // Update latest snapshot
+        this.sensorData.motion_data = { ...sample };
 
-          // Update latest snapshot
-          this.sensorData.motion_data = { ...sample };
+        // Push into buffer and cap length
+  const maxLen = (SENSOR_CONFIG?.MOTION_BUFFER_SIZE) ?? 100;
+        this.motionBuffer.push(sample);
+        if (this.motionBuffer.length > maxLen) {
+          this.motionBuffer = this.motionBuffer.slice(-maxLen);
+        }
+      });
 
-          // Push into buffer and cap length
-          const maxLen = (SENSOR_CONFIG?.MOTION_BUFFER_SIZE) ?? 100;
-          this.motionBuffer.push(sample);
-          if (this.motionBuffer.length > maxLen) {
-            this.motionBuffer = this.motionBuffer.slice(-maxLen);
-          }
+      // Gyroscope
+      const gyroscopeSubscription = Gyroscope.addListener(({ x, y, z }) => {
+        if (this.sensorData.motion_data) {
+          this.sensorData.motion_data.gyroscope = [x, y, z];
+        }
+      });
 
-          // Log every 50th sample to avoid spam
-          motionSampleCount++;
-          if (motionSampleCount % 50 === 0) {
-            console.log(`📱 Motion sample ${motionSampleCount}: accel=[${x.toFixed(3)}, ${y.toFixed(3)}, ${z.toFixed(3)}]`);
-          }
-        });
-        this.subscriptions.push(accelerometerSubscription);
-      } catch (e) {
-        console.warn('⚠️ Accelerometer not available:', e);
-      }
+      // Magnetometer
+      const magnetometerSubscription = Magnetometer.addListener(({ x, y, z }) => {
+        if (this.sensorData.motion_data) {
+          this.sensorData.motion_data.magnetometer = [x, y, z];
+        }
+      });
 
-      // Gyroscope with error handling
-      try {
-        const gyroscopeSubscription = Gyroscope.addListener(({ x, y, z }) => {
-          if (this.sensorData.motion_data) {
-            this.sensorData.motion_data.gyroscope = [x, y, z];
-          }
-          // Update motion buffer with latest gyro data
-          if (this.motionBuffer.length > 0) {
-            this.motionBuffer[this.motionBuffer.length - 1].gyroscope = [x, y, z];
-          }
-        });
-        this.subscriptions.push(gyroscopeSubscription);
-      } catch (e) {
-        console.warn('⚠️ Gyroscope not available:', e);
-      }
-
-      // Magnetometer with error handling
-      try {
-        const magnetometerSubscription = Magnetometer.addListener(({ x, y, z }) => {
-          if (this.sensorData.motion_data) {
-            this.sensorData.motion_data.magnetometer = [x, y, z];
-          }
-          // Update motion buffer with latest magnetometer data
-          if (this.motionBuffer.length > 0) {
-            this.motionBuffer[this.motionBuffer.length - 1].magnetometer = [x, y, z];
-          }
-        });
-        this.subscriptions.push(magnetometerSubscription);
-      } catch (e) {
-        console.warn('⚠️ Magnetometer not available:', e);
-      }
-
-      console.log('✅ Motion sensors started successfully');
+      this.subscriptions.push(
+        accelerometerSubscription,
+        gyroscopeSubscription,
+        magnetometerSubscription
+      );
     } catch (error) {
-      console.error('❌ Error starting motion sensors:', error);
-      // Fall back to simulated data
-      this.createSimulatedMotionData();
-      console.log('✅ Using simulated motion data as fallback');
+      console.error('Error starting motion sensors:', error);
+      this.stopMotionSensors();
     }
-  }
-
-  private createSimulatedMotionData(): void {
-    // Create realistic simulated motion data
-    const interval = setInterval(() => {
-      if (!this.isCollecting) {
-        clearInterval(interval);
-        return;
-      }
-
-      const sample: MotionData = {
-        accelerometer: [
-          Math.random() * 0.2 - 0.1,
-          Math.random() * 0.2 - 0.1,
-          9.8 + Math.random() * 0.2 - 0.1
-        ],
-        gyroscope: [
-          Math.random() * 0.1 - 0.05,
-          Math.random() * 0.1 - 0.05,
-          Math.random() * 0.1 - 0.05
-        ],
-        magnetometer: [
-          20 + Math.random() * 10 - 5,
-          -10 + Math.random() * 10 - 5,
-          40 + Math.random() * 10 - 5
-        ],
-        timestamp: Date.now() / 1000
-      };
-
-      this.sensorData.motion_data = sample;
-      this.motionBuffer.push(sample);
-      
-      const maxLen = (SENSOR_CONFIG?.MOTION_BUFFER_SIZE) ?? 100;
-      if (this.motionBuffer.length > maxLen) {
-        this.motionBuffer = this.motionBuffer.slice(-maxLen);
-      }
-    }, SENSOR_CONFIG.MOTION_UPDATE_INTERVAL);
-
-    this.subscriptions.push({ remove: () => clearInterval(interval) });
   }
 
   stopMotionSensors(): void {
@@ -200,7 +121,6 @@ export class SensorManager {
     };
 
     this.touchEventBuffer.push(formattedEvent);
-    console.log(`👆 Touch event captured: ${formattedEvent.action} at (${formattedEvent.x.toFixed(1)}, ${formattedEvent.y.toFixed(1)}) pressure=${formattedEvent.pressure.toFixed(2)}`);
     
     // Keep only last N events to manage memory
     if (this.touchEventBuffer.length > SENSOR_CONFIG.TOUCH_BUFFER_SIZE) {
@@ -217,7 +137,6 @@ export class SensorManager {
     };
 
     this.keystrokeEventBuffer.push(formattedEvent);
-    console.log(`⌨️ Keystroke captured: key=${formattedEvent.key_code} action=${formattedEvent.action} pressure=${formattedEvent.pressure.toFixed(2)}`);
     
     // Keep only last N events
     if (this.keystrokeEventBuffer.length > SENSOR_CONFIG.KEYSTROKE_BUFFER_SIZE) {
@@ -264,12 +183,7 @@ export class SensorManager {
     this.sensorData.keystroke_events = [...this.keystrokeEventBuffer];
     this.sensorData.app_usage = [...this.appUsageBuffer];
 
-    // Use the latest motion data for the main motion_data field (API spec compliance)
-    if (this.motionBuffer && this.motionBuffer.length > 0) {
-      this.sensorData.motion_data = this.motionBuffer[this.motionBuffer.length - 1];
-    }
-
-    // Include recent motion sequence as well for backend analysis (additional field)
+    // Include recent motion sequence as well for backend analysis
     const data = { ...this.sensorData } as any;
     if (this.motionBuffer && this.motionBuffer.length > 0) {
       data.motion_sequence = [...this.motionBuffer];
@@ -295,13 +209,11 @@ export class SensorManager {
     this.sensorData.audio_data = audioBase64;
     this.sensorData.sample_rate = sampleRate;
     this.sensorData.audio_duration = duration;
-    console.log(`🎤 Audio data set: ${duration.toFixed(2)}s at ${sampleRate}Hz (${audioBase64.length} chars)`);
   }
 
   setImageData(imageBase64: string, cameraType: 'front' | 'rear' = 'front'): void {
     this.sensorData.image_data = imageBase64;
     this.sensorData.camera_type = cameraType;
-    console.log(`📷 Image data set: ${cameraType} camera (${imageBase64.length} chars)`);
   }
 
   isMotionSensorsActive(): boolean {
@@ -317,12 +229,6 @@ export class SensorManager {
     this.sensorData.touch_events = [...this.touchEventBuffer];
     this.sensorData.keystroke_events = [...this.keystrokeEventBuffer];
     this.sensorData.app_usage = [...this.appUsageBuffer];
-    
-    // Use the latest motion data for the main motion_data field (API spec compliance)
-    if (this.motionBuffer && this.motionBuffer.length > 0) {
-      this.sensorData.motion_data = this.motionBuffer[this.motionBuffer.length - 1];
-    }
-    
     const data = { ...this.sensorData } as any;
     if (this.motionBuffer && this.motionBuffer.length > 0) {
       data.motion_sequence = [...this.motionBuffer];

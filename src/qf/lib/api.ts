@@ -170,50 +170,25 @@ export class QuadFusionAPI {
   private baseURL: string;
   private connectionStatus: typeof API_CONNECTION_STATUS[keyof typeof API_CONNECTION_STATUS] = API_CONNECTION_STATUS.DISCONNECTED;
   private connectionListeners: ((status: typeof API_CONNECTION_STATUS[keyof typeof API_CONNECTION_STATUS]) => void)[] = [];
-  private connectionCheckTimeout: ReturnType<typeof setTimeout> | null = null;
-  private isCheckingConnection = false;
 
   constructor(baseURL: string = getApiBaseUrl()) {
     this.baseURL = baseURL;
-    this.debouncedCheckConnection();
+    this.checkConnection();
   }
   
-  // Debounced connection check to prevent rapid reconnections
-  private debouncedCheckConnection() {
-    if (this.connectionCheckTimeout) {
-      clearTimeout(this.connectionCheckTimeout);
-    }
-    
-    this.connectionCheckTimeout = setTimeout(() => {
-      this.checkConnection();
-    }, 1000); // Wait 1 second before checking
-  }
-
   // Check API connection and update status
   private async checkConnection() {
-    if (this.isCheckingConnection) return;
-    
-    this.isCheckingConnection = true;
-    const maxAttempts = 2; // Reduced attempts to prevent spam
+    const maxAttempts = 3;
     let attempt = 0;
 
     const attemptFetch = async (): Promise<boolean> => {
       attempt++;
-      
-      // Only update to connecting if we're not already connected
-      if (this.connectionStatus !== API_CONNECTION_STATUS.CONNECTED) {
-        this.updateConnectionStatus(API_CONNECTION_STATUS.CONNECTING);
-      }
-      
+      this.updateConnectionStatus(API_CONNECTION_STATUS.CONNECTING);
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 3000); // Shorter timeout
+      const timeoutId = setTimeout(() => controller.abort(), Math.max(5000, TIMEOUTS.REQUEST / 2));
 
       try {
-        const response = await fetch(`${this.baseURL}/health`, {
-          method: 'GET',
-          signal: controller.signal,
-          cache: 'no-cache'
-        });
+        const response = await fetch(`${this.baseURL}/health`, { method: 'GET', signal: controller.signal });
         clearTimeout(timeoutId);
         if (response.ok) {
           this.updateConnectionStatus(API_CONNECTION_STATUS.CONNECTED);
@@ -223,7 +198,9 @@ export class QuadFusionAPI {
         return false;
       } catch (err: any) {
         clearTimeout(timeoutId);
+        console.error('API connection check failed:', err);
         if (err && err.name === 'AbortError') {
+          console.warn('Connection check timed out');
           this.updateConnectionStatus(API_CONNECTION_STATUS.DISCONNECTED);
         } else {
           this.updateConnectionStatus(API_CONNECTION_STATUS.ERROR);
@@ -235,12 +212,9 @@ export class QuadFusionAPI {
     while (attempt < maxAttempts) {
       const ok = await attemptFetch();
       if (ok) break;
-      if (attempt < maxAttempts) {
-        await new Promise(res => setTimeout(res, 1000)); // Shorter backoff
-      }
+      const backoff = 500 * attempt;
+      await new Promise(res => setTimeout(res, backoff));
     }
-    
-    this.isCheckingConnection = false;
   }
   
   // Update connection status and notify listeners
@@ -275,22 +249,14 @@ export class QuadFusionAPI {
   public getConnectionStatus(): typeof API_CONNECTION_STATUS[keyof typeof API_CONNECTION_STATUS] {
     return this.connectionStatus;
   }
-  
-  // Get current base URL
-  public getBaseURL(): string {
-    return this.baseURL;
-  }
 
   private async makeRequest<T>(endpoint: string, options: RequestInit = {}, useDefaultOnFailure: boolean = false, defaultValue?: T): Promise<T> {
     try {
       console.log(`Making API request to: ${this.baseURL}${endpoint}`);
       const url = `${this.baseURL}${endpoint}`;
       
-      // Don't update connection status for every request to avoid spam
-      // Only update if we're currently disconnected
-      if (this.connectionStatus === API_CONNECTION_STATUS.DISCONNECTED) {
-        this.updateConnectionStatus(API_CONNECTION_STATUS.CONNECTING);
-      }
+      // Update connection status to connecting
+      this.updateConnectionStatus(API_CONNECTION_STATUS.CONNECTING);
       
       // Set timeout to prevent hanging requests
       const controller = new AbortController();
@@ -302,16 +268,13 @@ export class QuadFusionAPI {
           ...options.headers,
         },
         signal: controller.signal,
-        cache: 'no-cache',
         ...options,
       });
 
       clearTimeout(timeoutId);
 
-      // Only update connection status if it changed
-      if (this.connectionStatus !== API_CONNECTION_STATUS.CONNECTED) {
-        this.updateConnectionStatus(API_CONNECTION_STATUS.CONNECTED);
-      }
+      // Update connection status based on response
+      this.updateConnectionStatus(API_CONNECTION_STATUS.CONNECTED);
 
       // Read raw response text so we can log it in dev and parse robustly
       const rawText = await response.text().catch(() => '');
@@ -346,15 +309,12 @@ export class QuadFusionAPI {
     } catch (error: any) {
       console.error(`API Request failed for ${endpoint}:`, error);
       
-      // Only update connection status if it actually changed
+      // Update connection status based on error
       if (error.name === 'AbortError') {
-        if (this.connectionStatus !== API_CONNECTION_STATUS.DISCONNECTED) {
-          this.updateConnectionStatus(API_CONNECTION_STATUS.DISCONNECTED);
-        }
+        console.warn('Request timed out');
+        this.updateConnectionStatus(API_CONNECTION_STATUS.DISCONNECTED);
       } else {
-        if (this.connectionStatus !== API_CONNECTION_STATUS.ERROR) {
-          this.updateConnectionStatus(API_CONNECTION_STATUS.ERROR);
-        }
+        this.updateConnectionStatus(API_CONNECTION_STATUS.ERROR);
       }
       
       // Check if we should use fallback
@@ -394,7 +354,7 @@ export class QuadFusionAPI {
 
   // Real-time Processing Endpoints
   async processRealtimeSensorData(sessionId: string, sensorData: SensorData): Promise<ProcessingResult> {
-    // Create a comprehensive fallback response with all agent types
+    // Create a default fallback response with mock data
     const defaultResponse: ProcessingResult = {
       anomaly_score: Math.random() * 0.5, // Lower score for demo
       risk_level: Math.random() > 0.7 ? 'medium' : 'low',
@@ -405,59 +365,33 @@ export class QuadFusionAPI {
           anomaly_score: Math.random() * 0.4,
           risk_level: 'low',
           confidence: 0.9,
-          features_analyzed: ['pressure_variance', 'swipe_speed', 'tremor_score'],
+          features_analyzed: ['pressure', 'velocity', 'pattern'],
           processing_time_ms: 40,
-          metadata: { pattern_match: 'strong', touch_events_processed: sensorData.touch_events.length }
+          metadata: { pattern_match: 'strong' }
         },
         [AGENT_TYPES.TYPING]: {
           anomaly_score: Math.random() * 0.3,
           risk_level: 'low',
           confidence: 0.85,
-          features_analyzed: ['dwell_times', 'flight_times', 'rhythm'],
+          features_analyzed: ['rhythm', 'dwell_time', 'flight_time'],
           processing_time_ms: 30,
-          metadata: { rhythm_match: 'good', keystrokes_processed: sensorData.keystroke_events.length }
+          metadata: { rhythm_match: 'good' }
         },
         [AGENT_TYPES.MOVEMENT]: {
           anomaly_score: Math.random() * 0.6,
           risk_level: Math.random() > 0.7 ? 'medium' : 'low',
           confidence: 0.75,
-          features_analyzed: ['activity_level', 'motion_patterns'],
+          features_analyzed: ['gait', 'orientation', 'stability'],
           processing_time_ms: 50,
-          metadata: { stability_match: 'moderate', motion_data_available: !!sensorData.motion_data }
-        },
-        [AGENT_TYPES.VOICE]: {
-          anomaly_score: Math.random() * 0.4,
-          risk_level: 'low',
-          confidence: 0.8,
-          features_analyzed: ['speaker_match', 'speech_patterns'],
-          processing_time_ms: 60,
-          metadata: { speaker_id: 'enrolled_user', audio_data_available: !!sensorData.audio_data }
-        },
-        [AGENT_TYPES.VISUAL]: {
-          anomaly_score: Math.random() * 0.5,
-          risk_level: 'low',
-          confidence: 0.82,
-          features_analyzed: ['face_match', 'scene_consistency'],
-          processing_time_ms: 70,
-          metadata: { face_detected: true, image_data_available: !!sensorData.image_data }
-        },
-        [AGENT_TYPES.APP_USAGE]: {
-          anomaly_score: Math.random() * 0.3,
-          risk_level: 'low',
-          confidence: 0.88,
-          features_analyzed: ['usage_frequency', 'timing_patterns'],
-          processing_time_ms: 25,
-          metadata: { apps_tracked: sensorData.app_usage.length }
+          metadata: { stability_match: 'moderate' }
         }
       },
       metadata: {
         device_info: 'Mobile',
-        session_duration: sensorData.touch_events.length > 0 ?
-          sensorData.touch_events[sensorData.touch_events.length-1].timestamp -
+        session_duration: sensorData.touch_events.length > 0 ? 
+          sensorData.touch_events[sensorData.touch_events.length-1].timestamp - 
           sensorData.touch_events[0].timestamp : 0,
-        data_points_analyzed: sensorData.touch_events.length + sensorData.keystroke_events.length,
-        agents_active: 6,
-        fallback_mode: this.connectionStatus !== API_CONNECTION_STATUS.CONNECTED
+        data_points_analyzed: sensorData.touch_events.length + sensorData.keystroke_events.length
       }
     };
     
