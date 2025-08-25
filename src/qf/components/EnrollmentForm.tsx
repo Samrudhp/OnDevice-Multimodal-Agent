@@ -119,19 +119,14 @@ export default function EnrollmentForm({ onEnrollmentComplete, onClose }: Enroll
         return (
           <View style={styles.inputContainer}>
             <Text style={styles.inputLabel}>User ID</Text>
-                  <TextInput
-                    style={styles.textInput}
-                    value={userId}
-                    onChangeText={setUserId}
-                    placeholder="Enter your user ID"
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                    onKeyPress={(e) => {
-                      try {
-                        sensorManager.addKeystrokeEvent({ keyCode: e.nativeEvent.key, type: 'keydown' });
-                      } catch (ex) { /* ignore */ }
-                    }}
-                  />
+            <TextInput
+              style={styles.textInput}
+              value={userId}
+              onChangeText={setUserId}
+              placeholder="Enter your user ID"
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
             <TouchableOpacity
               style={styles.primaryButton}
               onPress={startEnrollment}

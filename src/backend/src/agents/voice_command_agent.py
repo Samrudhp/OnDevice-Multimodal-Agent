@@ -387,7 +387,19 @@ class VoiceCommandAgent(BaseAgent):
             speech_features = features[n_speaker_features:]
             
             # Scale speaker features
-            speaker_features_scaled = self.mfcc_scaler.transform(speaker_features.reshape(1, -1))[0]
+            try:
+                # Check if scaler is fitted
+                if hasattr(self.mfcc_scaler, 'mean_') and self.mfcc_scaler.mean_ is not None:
+                    speaker_features_scaled = self.mfcc_scaler.transform(speaker_features.reshape(1, -1))[0]
+                else:
+                    # Fit scaler with current data if not fitted
+                    features_reshaped = speaker_features.reshape(1, -1)
+                    self.mfcc_scaler.fit(features_reshaped)
+                    speaker_features_scaled = self.mfcc_scaler.transform(features_reshaped)[0]
+                    print(f"[{self.agent_name}] MFCC scaler fitted with current data")
+            except Exception as e:
+                print(f"[{self.agent_name}] MFCC scaler transform failed: {e}")
+                speaker_features_scaled = speaker_features
             
             # Speaker verification using SVM
             speaker_probability = self.speaker_classifier.predict_proba(speaker_features_scaled.reshape(1, -1))[0]

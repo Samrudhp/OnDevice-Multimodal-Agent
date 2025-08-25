@@ -15,7 +15,6 @@ export class SensorManager {
   };
   
   private subscriptions: any[] = [];
-  private motionBuffer: MotionData[] = [];
   private touchEventBuffer: TouchEvent[] = [];
   private keystrokeEventBuffer: KeystrokeEvent[] = [];
   private appUsageBuffer: AppUsageEvent[] = [];
@@ -57,23 +56,16 @@ export class SensorManager {
 
       // Accelerometer
       const accelerometerSubscription = Accelerometer.addListener(({ x, y, z, timestamp }) => {
-        // Keep a short time-series buffer of motion samples so backend can analyze sequences
-        const sample: MotionData = {
-          accelerometer: [x, y, z],
-          gyroscope: this.sensorData.motion_data?.gyroscope || [0, 0, 0],
-          magnetometer: this.sensorData.motion_data?.magnetometer || [0, 0, 0],
-          timestamp: timestamp / 1000, // Convert to seconds
-        };
-
-        // Update latest snapshot
-        this.sensorData.motion_data = { ...sample };
-
-        // Push into buffer and cap length
-  const maxLen = (SENSOR_CONFIG?.MOTION_BUFFER_SIZE) ?? 100;
-        this.motionBuffer.push(sample);
-        if (this.motionBuffer.length > maxLen) {
-          this.motionBuffer = this.motionBuffer.slice(-maxLen);
+        if (!this.sensorData.motion_data) {
+          this.sensorData.motion_data = {
+            accelerometer: [0, 0, 0],
+            gyroscope: [0, 0, 0],
+            magnetometer: [0, 0, 0],
+            timestamp: 0,
+          };
         }
+        this.sensorData.motion_data.accelerometer = [x, y, z];
+        this.sensorData.motion_data.timestamp = timestamp / 1000; // Convert to seconds
       });
 
       // Gyroscope
@@ -183,12 +175,7 @@ export class SensorManager {
     this.sensorData.keystroke_events = [...this.keystrokeEventBuffer];
     this.sensorData.app_usage = [...this.appUsageBuffer];
 
-    // Include recent motion sequence as well for backend analysis
-    const data = { ...this.sensorData } as any;
-    if (this.motionBuffer && this.motionBuffer.length > 0) {
-      data.motion_sequence = [...this.motionBuffer];
-    }
-    return data as SensorData;
+    return { ...this.sensorData };
   }
 
   resetSensorData(): void {
@@ -229,11 +216,8 @@ export class SensorManager {
     this.sensorData.touch_events = [...this.touchEventBuffer];
     this.sensorData.keystroke_events = [...this.keystrokeEventBuffer];
     this.sensorData.app_usage = [...this.appUsageBuffer];
-    const data = { ...this.sensorData } as any;
-    if (this.motionBuffer && this.motionBuffer.length > 0) {
-      data.motion_sequence = [...this.motionBuffer];
-    }
-    return data as SensorData;
+    
+    return { ...this.sensorData };
   }
 }
 

@@ -132,28 +132,12 @@ class VisualAgent(BaseAgent):
     def _base64_to_image(self, base64_string: str) -> Optional[np.ndarray]:
         """Convert base64 string to numpy image array"""
         try:
-            # Strip data URI prefix if present: data:image/jpeg;base64,....
-            if isinstance(base64_string, str) and base64_string.startswith('data:'):
-                try:
-                    base64_string = base64_string.split(',', 1)[1]
-                except Exception:
-                    # couldn't split, continue with original
-                    pass
-
-            # Replace URL-safe chars
-            base64_string = base64_string.replace('-', '+').replace('_', '/')
-
-            # Pad base64 string length to multiple of 4
-            missing_padding = len(base64_string) % 4
-            if missing_padding:
-                base64_string += '=' * (4 - missing_padding)
-
             image_bytes = base64.b64decode(base64_string)
             image = Image.open(io.BytesIO(image_bytes))
             image_rgb = image.convert('RGB')
             return np.array(image_rgb)
         except Exception as e:
-            print(f"Error converting base64 to image: {e} -- header_preview={str(base64_string)[:80]}")
+            print(f"Error converting base64 to image: {e}")
             return None
     
     def _extract_face_features(self, image: np.ndarray) -> Optional[np.ndarray]:

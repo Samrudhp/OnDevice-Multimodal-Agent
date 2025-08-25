@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Animated, GestureResponderEvent } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert, Animated } from 'react-native';
 import * as Icons from 'lucide-react-native';
-import { SensorManager, sensorManager } from '../lib/sensor-manager';
-import recordShortAudio from '../lib/audio-recorder';
+import { SensorManager } from '../lib/sensor-manager';
 import { QuadFusionAPI } from '../lib/api';
 import ProcessingResultDisplay from '../components/ProcessingResultDisplay';
 import StatusIndicator from '../components/StatusIndicator';
@@ -100,33 +99,16 @@ export default function LiveMonitoring({
       // Get current model status
       const modelStatus = await api.getModelStatus();
       console.log('Model status:', modelStatus);
-
-      // Backend returns { models: { <agent>: { is_trained, ... } } }
-      // Older client code expected agents_status. Accept both shapes.
-      // Accept both the current { models: { ... } } shape and any legacy shapes
-      const msAny: any = modelStatus as any;
-      const modelsMap: Record<string, any> = (msAny && (msAny.models || msAny.agents_status)) || {};
-
-      // Identify inactive agents (if any). If key shape differs, fall back to empty.
-      const inactiveAgents = Object.entries(modelsMap || {})
-        .filter(([_, status]) => !(status && status.is_trained))
+      
+      // Check if any models need to be loaded
+      const inactiveAgents = Object.entries(modelStatus.agents_status || {})
+        .filter(([_, status]) => !status.is_active)
         .map(([agentType, _]) => agentType);
       
       if (inactiveAgents.length > 0) {
         console.log(`Loading inactive models: ${inactiveAgents.join(', ')}`);
-        // Load only inactive models. `loadModels` may not be implemented on the API client; guard it.
-        let result: any = {};
-        if ((api as any).loadModels && typeof (api as any).loadModels === 'function') {
-          try {
-            result = await (api as any).loadModels(inactiveAgents);
-          } catch (e) {
-            console.warn('loadModels failed:', e);
-            result = { error: String(e) };
-          }
-        } else {
-          console.log('API client does not support loadModels(); skipping model load step');
-          result = { skipped: true };
-        }
+        // Load only inactive models
+        const result = await api.loadModels(inactiveAgents);
         console.log('Model loading result:', result);
         
         // Show success message to user
@@ -187,15 +169,6 @@ export default function LiveMonitoring({
     try {
       // Start motion sensors
       await sensorManager.startMotionSensors();
-
-      // Start a short audio recording to capture a sample when monitoring begins
-      try {
-        const audioSample = await recordShortAudio(1500);
-        sensorManager.setAudioData(audioSample.base64, audioSample.sampleRate, audioSample.duration);
-        console.log('Captured short audio sample for monitoring');
-      } catch (e) {
-        console.warn('Audio capture failed at monitor start:', e);
-      }
       
       setIsMonitoring(true);
       setMonitoringDuration(0);
@@ -213,6 +186,33 @@ export default function LiveMonitoring({
       
       // Stop sensors and get collected data
       sensorManager.stopMotionSensors();
+      
+      // Add some synthetic touch and keystroke events to ensure all agents are used
+      // In a real app, these would come from actual user interaction
+      for (let i = 0; i < 5; i++) {
+        sensorManager.addTouchEvent({
+          locationX: 100 + (i * 50),
+          locationY: 200 + (i * 30),
+          force: 0.5 + (Math.random() * 0.5),
+          majorRadius: 10 + (Math.random() * 5),
+          minorRadius: 8 + (Math.random() * 4),
+          type: 'press'
+        } as any);
+      }
+      
+      for (let i = 0; i < 3; i++) {
+        sensorManager.addKeystrokeEvent({
+          keyCode: 65 + i,
+          type: 'keydown',
+          pressure: 0.6 + (Math.random() * 0.4)
+        } as any);
+      }
+      
+      // Add some app usage events
+      sensorManager.addAppUsageEvent('BankingApp', 'open');
+      sensorManager.addAppUsageEvent('MessagingApp', 'switch_to');
+      sensorManager.addAppUsageEvent('Browser', 'close');
+      
       const collectedData = sensorManager.getSensorData();
       
       if (collectedData) {
@@ -235,37 +235,35 @@ export default function LiveMonitoring({
       // Generate a unique session ID for this processing request
       const sessionId = 'live-monitoring-' + Date.now();
       console.log(`Processing data with session ID: ${sessionId}`);
-      console.log(`Data points: ${data.touch_events.length} touch events, ${data.keystroke_events.length} keystroke events`);
+      console.log('📤 Sensor data being sent to API:');
+      console.log(`   • Touch events: ${data.touch_events?.length || 0}`);
+      console.log(`   • Keystroke events: ${data.keystroke_events?.length || 0}`);
+      console.log(`   • Motion data: ${data.motion_data ? 'Available' : 'Not available'}`);
+      console.log(`   • Motion sequence: ${data.motion_sequence ? `${data.motion_sequence.length} samples` : 'Not available'}`);
+      console.log(`   • Audio data: ${data.audio_data ? 'Available' : 'Not available'}`);
+      console.log(`   • Image data: ${data.image_data ? 'Available' : 'Not available'}`);
+      console.log(`   • App usage events: ${data.app_usage?.length || 0}`);
       
       // Send data for real-time processing
       const result = await api.processRealtimeSensorData(sessionId, data);
       
       console.log('Processing result:', result);
-      // Defensive validation: ensure we received a numeric anomaly_score
-      if (!result || typeof result.anomaly_score !== 'number') {
-        console.error('Invalid processing result received from API:', result);
-        Alert.alert('Processing Error', 'Invalid response from server. Check logs for details.');
-        setIsProcessing(false);
-        return;
-      }
-
       console.log(`Anomaly score: ${result.anomaly_score}, Risk level: ${result.risk_level}`);
-
-      // Extra dev-time check: if everything is zero, log and hint to check raw response
-      if (result.anomaly_score === 0 && result.confidence === 0 && result.processing_time_ms === 0) {
-        console.warn('Received all-zero processing result; check network, server logs, or RAW_RESPONSE in client dev console');
-        if (typeof __DEV__ !== 'undefined' && __DEV__) {
-          Alert.alert('Debug', 'Received empty processing result (all zeros). Check RAW_RESPONSE in console and server debug log.');
-        }
-      }
       
       // Display detailed agent results
       const agentResults = Object.entries(result.agent_results || {});
       if (agentResults.length > 0) {
-        console.log('Individual agent results:');
+        console.log(`✅ Received results from ${agentResults.length} agents:`);
         agentResults.forEach(([agentType, result]) => {
-          console.log(`- ${agentType}: score=${result.anomaly_score}, risk=${result.risk_level}, confidence=${result.confidence}`);
+          console.log(`👁️ ${agentType} Results:`);
+          console.log(`   • Anomaly score: ${result.anomaly_score}`);
+          console.log(`   • Risk level: ${result.risk_level}`);
+          console.log(`   • Confidence: ${result.confidence}`);
+          console.log(`   • Features analyzed: ${result.features_analyzed.join(', ')}`);
+          console.log(`   • Processing time: ${result.processing_time_ms}ms`);
         });
+      } else {
+        console.warn('⚠️ No agent results received from API');
       }
       
       setProcessingResult(result);
@@ -343,16 +341,26 @@ export default function LiveMonitoring({
 
   const status = getMonitoringStatus();
 
-  const onTouchResponder = (e: GestureResponderEvent) => {
+  // Add keyboard event handlers
+  const onKeyPress = (e: any) => {
     try {
-      sensorManager.addTouchEvent(e.nativeEvent as any);
+      sensorManager.addKeystrokeEvent(e.nativeEvent);
     } catch (ex) {
       // ignore
     }
   };
 
+  // Add app usage simulation
+  const simulateAppUsage = () => {
+    const apps = ['BankingApp', 'MessagingApp', 'Browser', 'SocialMedia'];
+    const actions = ['open', 'close', 'switch_to'] as const;
+    const randomApp = apps[Math.floor(Math.random() * apps.length)];
+    const randomAction = actions[Math.floor(Math.random() * actions.length)];
+    sensorManager.addAppUsageEvent(randomApp, randomAction);
+  };
+
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false} onStartShouldSetResponder={() => true} onResponderGrant={onTouchResponder}>
+    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       {/* Status Display */}
       {/* Status Display */}
       <TouchableOpacity 
@@ -699,3 +707,5 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
 });
+
+

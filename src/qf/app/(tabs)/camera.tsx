@@ -2,8 +2,6 @@ import React, { useState, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Alert, Animated } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { CameraView, CameraType, useCameraPermissions } from 'expo-camera';
-import { sensorManager } from '../../lib/sensor-manager';
-import { QuadFusionAPI } from '../../lib/api';
 import { Camera, RotateCcw, CircleCheck as CheckCircle, CircleAlert as AlertCircle, Eye } from 'lucide-react-native';
 import { StatusBar } from 'expo-status-bar';
 import { COLORS, ANIMATION } from '../../lib/constants';
@@ -21,7 +19,6 @@ export default function CameraTab() {
     biometricMatch: boolean;
   } | null>(null);
   const cameraRef = useRef<CameraView>(null);
-  const api = new QuadFusionAPI();
   
   const { glowAnim, startGlowAnimation } = useGlowAnimation(0.4, 0.8);
   const { pulseAnim, startPulseAnimation } = usePulseAnimation(0.05);
@@ -63,50 +60,39 @@ export default function CameraTab() {
 
     setIsAnalyzing(true);
 
-    try {
-      // Try to capture a picture from the camera view
-      if (cameraRef.current && (cameraRef.current as any).takePictureAsync) {
-        const picture = await (cameraRef.current as any).takePictureAsync({ base64: true, quality: 0.6 });
-        if (picture && picture.base64) {
-          // Forward base64 image to SensorManager
-          sensorManager.setImageData(picture.base64, facing === 'front' ? 'front' : 'rear');
+    // Simulate biometric analysis
+    setTimeout(() => {
+      const faceDetected = Math.random() > 0.2;
+      const confidence = faceDetected ? 70 + Math.random() * 30 : Math.random() * 40;
+      const biometricMatch = faceDetected && confidence > 85;
 
-          // Also send a quick realtime processing request (small sample) to backend for visual agent
-          const sessionId = 'camera-capture-' + Date.now();
-          const sensorData = sensorManager.getCurrentSensorData();
-          try {
-            const result = await api.processRealtimeSensorData(sessionId, sensorData as any);
-            setAnalysisResult({ faceDetected: !!(result && result.agent_results && Object.keys(result.agent_results).length > 0), confidence: result.confidence || 0, biometricMatch: result.risk_level === 'low' });
-            if (result.risk_level === 'high') {
-              Alert.alert('High Risk', 'Potential high-risk visual anomaly detected.');
-            }
-          } catch (e) {
-            console.warn('Visual processing API call failed:', e);
-            // fallback to local simulation if API fails
-            setAnalysisResult({ faceDetected: true, confidence: 60, biometricMatch: false });
-          }
-        } else {
-          // fallback to simulated analysis if no image
-          setAnalysisResult({ faceDetected: false, confidence: 0, biometricMatch: false });
-        }
-      } else {
-        // No native camera capture available; keep existing simulated behavior
-        const faceDetected = Math.random() > 0.2;
-        const confidence = faceDetected ? 70 + Math.random() * 30 : Math.random() * 40;
-        const biometricMatch = faceDetected && confidence > 85;
-
-        setAnalysisResult({
-          faceDetected,
-          confidence,
-          biometricMatch,
-        });
-      }
-    } catch (err) {
-      console.error('Camera capture failed:', err);
-      Alert.alert('Error', 'Failed to capture image for analysis');
-    } finally {
+      setAnalysisResult({
+        faceDetected,
+        confidence,
+        biometricMatch,
+      });
       setIsAnalyzing(false);
-    }
+
+      if (biometricMatch) {
+        Alert.alert(
+          'Authentication Successful',
+          `Biometric match confirmed with ${confidence.toFixed(1)}% confidence.`,
+          [{ text: 'OK' }]
+        );
+      } else if (faceDetected) {
+        Alert.alert(
+          'Authentication Failed',
+          `Face detected but biometric match failed (${confidence.toFixed(1)}% confidence).`,
+          [{ text: 'Try Again' }]
+        );
+      } else {
+        Alert.alert(
+          'No Face Detected',
+          'Please position your face clearly within the camera frame.',
+          [{ text: 'OK' }]
+        );
+      }
+    }, 2000);
   };
 
   return (

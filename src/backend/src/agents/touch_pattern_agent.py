@@ -274,7 +274,19 @@ class TouchPatternAgent(BaseAgent):
             features = np.nan_to_num(features, nan=0.0, posinf=1e6, neginf=-1e6)
             
             # Scale features
-            features_scaled = self.scaler.transform(features.reshape(1, -1))
+            try:
+                # Check if scaler is fitted
+                if hasattr(self.scaler, 'mean_') and self.scaler.mean_ is not None:
+                    features_scaled = self.scaler.transform(features.reshape(1, -1))
+                else:
+                    # Fit scaler with current data if not fitted
+                    features_reshaped = features.reshape(1, -1)
+                    self.scaler.fit(features_reshaped)
+                    features_scaled = self.scaler.transform(features_reshaped)
+                    print(f"[{self.agent_name}] Scaler fitted with current data")
+            except Exception as e:
+                print(f"[{self.agent_name}] Scaler transform failed: {e}")
+                features_scaled = features.reshape(1, -1)
             
             # Get anomaly score (Isolation Forest returns -1 for anomalies, 1 for normal)
             isolation_score = self.isolation_forest.decision_function(features_scaled)[0]

@@ -341,7 +341,18 @@ class TypingBehaviorAgent(BaseAgent):
             
             # Normalize features
             features_flat = features.reshape(-1, self.feature_dim)
-            features_scaled = self.scaler.transform(features_flat).reshape(features.shape)
+            try:
+                # Check if scaler is fitted
+                if hasattr(self.scaler, 'mean_') and self.scaler.mean_ is not None:
+                    features_scaled = self.scaler.transform(features_flat).reshape(features.shape)
+                else:
+                    # Fit scaler with current data if not fitted
+                    self.scaler.fit(features_flat)
+                    features_scaled = self.scaler.transform(features_flat).reshape(features.shape)
+                    print(f"[{self.agent_name}] Scaler fitted with current data")
+            except Exception as e:
+                print(f"[{self.agent_name}] Scaler transform failed: {e}")
+                features_scaled = features_flat.reshape(features.shape)
             features_batch = features_scaled[np.newaxis, :, :]  # Add batch dimension
             
             # Get reconstruction

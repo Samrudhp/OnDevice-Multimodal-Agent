@@ -6,7 +6,7 @@ import { Platform } from 'react-native';
 
 // Manual defaults: Android emulator (AVD) uses 10.0.2.2 to reach host machine.
 // iOS simulator and web use localhost. This provides a working default without env vars.
-export const MANUAL_DEFAULT_ANDROID = 'http://10.0.2.2:8000';
+export const MANUAL_DEFAULT_ANDROID = 'http://127.0.0.1:8000';
 // Use the developer machine IP on the local network for physical devices
 export const MANUAL_DEFAULT_OTHER = 'http://localhost:8000';
 
