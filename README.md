@@ -1,41 +1,373 @@
-### **Important Instructions**:  
-- Click on *"Use this template"* button and *"Create a new repository"* in your github account for submission.
-<img width="1262" height="93" alt="Screenshot 2025-08-15 at 5 59 49 AM" src="https://github.com/user-attachments/assets/b72d5afd-ba07-4da1-ac05-a373b3168b6a" />
+# OnDevide MultiModal multi-agent System
 
-- Add one of the following open source licenses - [MIT](https://opensource.org/licenses/MIT), [Apache 2.0](https://opensource.org/licenses/Apache-2.0) or [BSD 3-Clause](https://opensource.org/licenses/BSD-3-Clause) to your submission repository. 
-- Once your repository is ready for **evaluation** send an email to ennovatex.io@samsung.com with the subject - "AI Challenge Submission - Team name" and the body of the email must contain only the Team Name, Team Leader Name & your GitHub project repository link.
-- All submission project materials outlined below must be added to the github repository and nothing should be attached in the submission email.
-- In case of any query, please feel free to reach out to us at ennovatex.io@samsung.com
+<div align="center">
 
-#### Evaluation Criteria
+**Multi-Modal Behavioral Fraud Detection System**
 
-| Project Aspect | % |
-| --- | --- |
-| Novelty of Approach | 25% |
-| Technical implementation & Documentation | 25% |
-| UI/UX Design or User Interaction Design | 15% |
-| Ethical Considerations & Scalability | 10% |
-| Demo Video (10 mins max) | 25% |
+[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![Python](https://img.shields.io/badge/Python-3.10+-blue.svg)](https://www.python.org/downloads/)
+[![React Native](https://img.shields.io/badge/React%20Native-0.79-61DAFB.svg)](https://reactnative.dev/)
+[![Expo](https://img.shields.io/badge/Expo-53.0-000020.svg)](https://expo.dev/)
 
-**-------------------------- Your Project README.md should start from here -----------------------------**
+**Real-time fraud detection using behavioral biometrics and AI-powered multi-agent analysis**
 
-# Samsung EnnovateX 2025 AI Challenge Submission
+[Features](#-features) • [Architecture](#-architecture) • [Getting Started](#-getting-started) • [Demo](#-demo) • [Documentation](#-documentation)
 
-- **Problem Statement** - *(Must exactly match one of the nine Samsung EnnovateX AI Challenge Problem Statements)*
-- **Team name** - *(As provided during the time of registration)*
-- **Team members (Names)** - *Member 1 Name*, *Member 2 Name*, *Member 3 Name*, *Member 4 Name* 
-- **Demo Video Link** - *(Upload the Demo video on Youtube as a public or unlisted video and share the link. Google Drive uploads or any other uploads are not allowed.)*
+</div>
+
+---
+
+## 🎯 Overview
+
+QuadFusion is an advanced **multi-modal behavioral fraud detection system** that leverages AI and machine learning to identify fraudulent activities through behavioral biometrics. Unlike traditional authentication methods, QuadFusion continuously monitors user behavior patterns across multiple dimensions:
+
+- **Touch Patterns** - Swipe dynamics, tap pressure, gesture recognition
+- **Typing Behavior** - Keystroke dynamics, rhythm analysis, timing patterns
+- **Voice Authentication** - Speaker identification, voice pattern analysis
+- **Visual Biometrics** - Face recognition, scene analysis
+- **Motion Analysis** - Accelerometer, gyroscope, magnetometer data
+- **App Usage Patterns** - Usage frequency, navigation patterns, temporal analysis
+
+The system uses a **multi-agent architecture** where specialized AI agents analyze different behavioral aspects and a coordinator agent fuses their decisions for robust fraud detection.
+
+---
+
+## ✨ Features
+
+### 🔒 **Multi-Modal Authentication**
+- Continuous behavioral biometric monitoring
+- Real-time anomaly detection
+- Risk scoring with confidence levels
+- Session-based fraud analysis
+
+### 🤖 **AI-Powered Multi-Agent System**
+- **6 Specialized Agents:**
+  - Touch Pattern Agent
+  - Typing Behavior Agent
+  - Voice Command Agent
+  - Visual Agent
+  - Movement Agent
+  - App Usage Agent
+- **Coordinator Agent** for intelligent decision fusion
+- Lightweight models optimized for mobile deployment
+
+### 📱 **Mobile-First Design**
+- React Native + Expo for cross-platform support
+- Real-time sensor data collection
+- Live monitoring dashboard
+- Beautiful, responsive UI with animations
+- Offline-capable with local processing
+
+### 🛡️ **Privacy & Security**
+- End-to-end encryption for biometric data
+- On-device processing where possible
+- Secure data storage and transmission
+- GDPR-compliant data handling
+
+### 📊 **Developer Experience**
+- RESTful API with comprehensive documentation
+- Easy integration with existing apps
+- Detailed logging and monitoring
+- Performance metrics and analytics
+
+---
+
+## 🏗️ Architecture
+
+### System Components
+
+```
+QuadFusion/
+├── Backend (Python)          # AI/ML Processing Server
+│   ├── API Server           # FastAPI REST endpoints
+│   ├── Multi-Agent System   # 6 specialized + 1 coordinator
+│   ├── Models               # ML models (LSTM, CNN, etc.)
+│   ├── Data Pipeline        # Collection, preprocessing, encryption
+│   └── Mobile Deployment    # ONNX/TFLite conversion
+│
+└── Frontend (React Native)   # Mobile Application
+    ├── Sensor Managers      # Data collection
+    ├── Live Monitoring      # Real-time dashboard
+    ├── UI Components        # Responsive, animated UI
+    └── API Client           # Backend communication
+```
+
+### Multi-Agent Architecture
+
+```
+User Interaction Data
+        ↓
+┌───────────────────────────────────┐
+│   Specialized Agent Layer         │
+├───────────────────────────────────┤
+│ • TouchPatternAgent    (20%)      │
+│ • TypingBehaviorAgent  (15%)      │
+│ • VoiceCommandAgent    (20%)      │
+│ • VisualAgent          (25%)      │
+│ • MovementAgent        (10%)      │
+│ • AppUsageAgent        (10%)      │
+└───────────────────────────────────┘
+        ↓
+┌───────────────────────────────────┐
+│   Coordinator Agent               │
+│   • Weighted fusion               │
+│   • Confidence aggregation        │
+│   • Risk level determination      │
+└───────────────────────────────────┘
+        ↓
+   Fraud Decision
+```
+
+### Technology Stack
+
+**Backend:**
+- Python 3.10+
+- FastAPI (REST API)
+- TensorFlow & PyTorch (Deep Learning)
+- Scikit-learn (ML algorithms)
+- ONNX/TFLite (Mobile optimization)
+- Librosa (Audio processing)
+- OpenCV & MediaPipe (Computer Vision)
+
+**Frontend:**
+- React Native 0.79
+- Expo 53.0
+- TypeScript
+- Expo Sensors, Camera, Audio
+- Victory Native (Charts)
+- React Navigation
+
+---
+
+## 🚀 Getting Started
+
+### Prerequisites
+
+- **Backend:** Python 3.10+, pip
+- **Frontend:** Node.js 18+, npm/yarn
+- **Mobile:** Expo Go app (for testing) or Expo CLI
+
+### Quick Start
+
+#### 1️⃣ Clone the Repository
+
+\`\`\`bash
+git clone https://github.com/Sagar-S-R/QuadFusion.git
+cd QuadFusion
+\`\`\`
+
+#### 2️⃣ Backend Setup
+
+```bash
+cd src/backend/src
+
+# Create virtual environment
+python3 -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Start API server
+cd ..
+python api_server.py
+```
+
+The backend server will start at \`http://127.0.0.1:8000\`
+
+**API Documentation:** Visit \`http://127.0.0.1:8000/docs\` for interactive API docs
+
+#### 3️⃣ Frontend Setup
+
+```bash
+cd src/qf
+
+# Install dependencies
+npm install
+
+# Start development server
+npm run dev
+```
+
+Scan the QR code with Expo Go app to run on your device.
+
+### Configuration
+
+#### Backend Configuration
+Edit \`src/backend/src/config.yaml\`:
+
+```yaml
+agents:
+  coordinator:
+    agent_weights:
+      TouchPatternAgent: 0.2
+      TypingBehaviorAgent: 0.15
+      VoiceCommandAgent: 0.2
+      VisualAgent: 0.25
+      AppUsageAgent: 0.1
+      MovementAgent: 0.1
+    risk_thresholds:
+      low: 0.3
+      medium: 0.6
+      high: 0.8
+```
+---
+
+## 📖 Usage
+
+### Running the Demo
+
+```bash
+# Terminal 1: Start backend
+cd src/backend
+python api_server.py
+
+# Terminal 2: Start frontend
+cd src/qf
+npm run dev
+```
+
+### API Examples
+
+#### Real-time Fraud Detection
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/v1/process/realtime \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "session_id": "session-123",
+    "sensor_data": {
+      "touch_events": [...],
+      "keystroke_events": [...],
+      "motion_data": {...},
+      "audio_data": "base64...",
+      "image_data": "base64..."
+    }
+  }'
+```
+
+**Response:**
+```json
+{
+  "anomaly_score": 0.23,
+  "risk_level": "low",
+  "confidence": 0.87,
+  "agent_results": {
+    "MovementAgent": {
+      "anomaly_score": 0.15,
+      "risk_level": "low",
+      "confidence": 0.9
+    },
+    "TouchPatternAgent": {...},
+    ...
+  }
+}
+```
+
+---
+
+## 🎬 Demo
+
+### Live Monitoring Dashboard
+
+The mobile app provides real-time visualization of:
+- **Sensor data collection** (touch, motion, audio, camera)
+- **Agent analysis results** with individual scores
+- **Risk assessment** with confidence levels
+- **Processing metrics** and performance stats
+
+### Screenshots
+
+*(Add screenshots of your mobile app here)*
+
+---
+
+## 📚 Documentation
+
+- **[API Specification](src/backend/API_SPECIFICATION.md)** - Complete API reference
+- **[Backend Setup](src/backend/START_SERVER.md)** - Detailed backend setup guide
+- **[Mobile Setup](src/qf/SETUP_AND_TESTING.md)** - Frontend setup and testing
+- **[Model Documentation](src/backend/src/models.md)** - ML model details
+- **[Architecture Docs](docs/)** - System architecture and design
+
+---
+
+## 🔧 Development
+
+### Project Structure
+
+```
+QuadFusion/
+├── src/
+│   ├── backend/
+│   │   ├── api_server.py              # Main API server
+│   │   ├── API_SPECIFICATION.md       # API docs
+│   │   └── src/
+│   │       ├── agents/                # Multi-agent system
+│   │       │   ├── coordinator_agent.py
+│   │       │   ├── touch_pattern_agent.py
+│   │       │   ├── typing_behavior_agent.py
+│   │       │   ├── voice_command_agent.py
+│   │       │   ├── visual_agent.py
+│   │       │   ├── movement_agent.py
+│   │       │   └── app_usage_agent.py
+│   │       ├── models/                # ML models
+│   │       ├── data/                  # Data pipeline
+│   │       ├── mobile_deployment/     # Model conversion
+│   │       ├── training/              # Model training
+│   │       └── utils/                 # Utilities
+│   │
+│   └── qf/                            # React Native app
+│       ├── app/                       # Expo Router pages
+│       ├── components/                # UI components
+│       ├── lib/                       # Utilities
+│       │   ├── sensor-manager.ts      # Sensor data collection
+│       │   ├── api.ts                 # API client
+│       │   └── audio-recorder.ts      # Audio recording
+│       └── config/                    # Configuration
+│
+├── docs/                              # Documentation
+└── README.md                          # This file
+```
 
 
-### Project Artefacts
 
-- **Technical Documentation** - [Docs](docs) *(All technical details must be written in markdown files inside the docs folder in the repo)*
-- **Source Code** - [Source](src) *(All source code must be added to the src folder in the repo. The code must be capable of being successfully installed/executed and must run consistently on the intended platforms.)*
-- **Models Used** - *(Hugging Face links to all models used in the project. You are permitted to use open weight models.)*
-- **Models Published** - *(In case you have developed a model as a part of your solution, kindly upload it on Hugging Face under appropriate open source license and add the link here.)*
-- **Datasets Used** - *(Links to all datasets used in the project. You are permitted to use publicly available datasets under licenses like Creative Commons, Open Data Commons, or equivalent.)*
-- **Datasets Published** - *(Links to all datasets created for the project and published on Hugging Face. You are allowed to publish any synthetic or proprietary dataset used in their project, but will be responsible for any legal compliance and permission for the same. The dataset can be published under Creative Commons, Open Data Commons, or equivalent license.)*
+## 🤝 Contributing
 
-### Attribution 
+Contributions are welcome! Please follow these steps:
 
-In case this project is built on top of an existing open source project, please provide the original project link here. Also, mention what new features were developed. Failing to attribute the source projects may lead to disqualification during the time of evaluation.
+1. Fork the repository
+2. Create your feature branch (\`git checkout -b feature/AmazingFeature\`)
+3. Commit your changes (\`git commit -m 'Add some AmazingFeature'\`)
+4. Push to the branch (\`git push origin feature/AmazingFeature\`)
+5. Open a Pull Request
+
+---
+
+## 📝 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+---
+
+## 🙏 Acknowledgments
+
+- Built for Samsung EnnovateX 2025 AI Challenge
+- TensorFlow and PyTorch communities
+- Expo and React Native teams
+- Open-source ML model contributors
+
+---
+
+## 📧 Contact
+
+**Project Repository:** [https://github.com/Samrudhp/OnDevice-Multimodal-Agent](https://github.com/Samrudhp/OnDevice-Multimodal-Agent)
+
+
+---
+
+<div align="center">
+
+**Built with ❤️ using AI and Multi-Agent Systems**
+
+*Protecting users through behavioral intelligence*
