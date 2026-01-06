@@ -151,10 +151,10 @@ User Interaction Data
 
 #### 1️⃣ Clone the Repository
 
-\`\`\`bash
-git clone https://github.com/Sagar-S-R/QuadFusion.git
+```bash
+git clone https://github.com/Samrudhp/OnDevice-Multimodal-Agent.git
 cd QuadFusion
-\`\`\`
+```
 
 #### 2️⃣ Backend Setup
 
